@@ -1,0 +1,34 @@
+{
+  "name": "mercurius-cache",
+  "version": "0.0.1",
+  "description": "Cache the results of your GraphQL resolvers, for Mercurius",
+  "main": "index.js",
+  "scripts": {
+    "test": "standard | snazzy && tap test/*test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mercurius-js/cache.git"
+  },
+  "keywords": [
+    "mercurius",
+    "graphql",
+    "cache"
+  ],
+  "author": "Matteo Collina <hello@matteocollina.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mercurius-js/cache/issues"
+  },
+  "homepage": "https://github.com/mercurius-js/cache#readme",
+  "devDependencies": {
+    "fastify": "^3.18.1",
+    "mercurius": "^8.0.0",
+    "snazzy": "^9.0.0",
+    "standard": "^16.0.3",
+    "tap": "^15.0.9"
+  },
+  "dependencies": {
+    "fastify-plugin": "^3.0.0"
+  }
+}
