@@ -22,6 +22,7 @@
   },
   "homepage": "https://github.com/mercurius-js/cache#readme",
   "devDependencies": {
+    "@fastify/pre-commit": "^2.0.2",
     "fastify": "^3.18.1",
     "mercurius": "^8.0.0",
     "snazzy": "^9.0.0",
@@ -29,6 +30,9 @@
     "tap": "^15.0.9"
   },
   "dependencies": {
-    "fastify-plugin": "^3.0.0"
-  }
+    "fastify-plugin": "^3.0.0",
+    "mnemonist": "^0.38.3",
+    "safe-stable-stringify": "^1.1.1"
+  },
+  "precommit": "test"
 }
