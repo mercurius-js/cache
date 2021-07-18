@@ -30,9 +30,8 @@
     "tap": "^15.0.9"
   },
   "dependencies": {
-    "fastify-plugin": "^3.0.0",
-    "mnemonist": "^0.38.3",
-    "safe-stable-stringify": "^1.1.1"
+    "async-cache-dedupe": "^0.2.0",
+    "fastify-plugin": "^3.0.0"
   },
   "precommit": "test"
 }

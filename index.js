@@ -1,12 +1,13 @@
 'use strict'
 
 const fp = require('fastify-plugin')
-const LRUCache = require('mnemonist/lru-cache')
-const stringify = require('safe-stable-stringify')
+const { Cache } = require('async-cache-dedupe')
 
-module.exports = fp(async function (app, { policy }) {
-  // TODO support TTL
-  const cache = new LRUCache(1000) // TODO make this configurable
+module.exports = fp(async function (app, { policy, ttl, cacheSize }) {
+  const cache = new Cache({
+    ttl,
+    cacheSize
+  })
   // TODO validate policy
   setupSchema(app.graphql.schema, policy, cache)
 })
@@ -35,14 +36,12 @@ function setupSchema (schema, policy, cache) {
 }
 
 function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver) {
-  return async function (a, b, c, d) {
-    const key = prefix + '.' + fieldName + '.' + stringify(b)
-    const cached = cache.get(key)
-    if (cached) {
-      return cached
-    }
-    const res = await originalFieldResolver.call(this, a, b, c, d)
-    cache.set(key, res)
+  const name = prefix + '.' + fieldName
+  cache.define(name, async function (arg) {
+    const res = await originalFieldResolver(null, arg, null, null)
     return res
+  })
+  return function (a, b, c, d) {
+    return cache[name](b)
   }
 }
