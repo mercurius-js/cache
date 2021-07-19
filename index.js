@@ -37,11 +37,16 @@ function setupSchema (schema, policy, cache) {
 
 function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver) {
   const name = prefix + '.' + fieldName
-  cache.define(name, async function (arg) {
-    const res = await originalFieldResolver(null, arg, null, null)
+  cache.define(name, {
+    serialize ({ self, arg }) {
+      // We must skip ctx and info as they are not easy to serialize
+      return { self, arg }
+    }
+  }, async function ({ self, arg, ctx, info }) {
+    const res = await originalFieldResolver(self, arg, ctx, info)
     return res
   })
-  return function (a, b, c, d) {
-    return cache[name](b)
+  return function (self, arg, ctx, info) {
+    return cache[name]({ self, arg, ctx, info })
   }
 }
