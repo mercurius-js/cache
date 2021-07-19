@@ -8,6 +8,7 @@ module.exports = fp(async function (app, { policy, ttl, cacheSize }) {
     ttl,
     cacheSize
   })
+  app.decorate('mercuriusCache', cache)
   // TODO validate policy
   setupSchema(app.graphql.schema, policy, cache)
 })

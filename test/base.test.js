@@ -191,3 +191,77 @@ test('cache a nested resolver with loaders', async ({ same, pass, plan, teardown
     { data: { dogs: [{ name: 'Max', owner: { name: 'Jennifer' } }, { name: 'Charlie', owner: { name: 'Sarah' } }, { name: 'Buddy', owner: { name: 'Tracy' } }, { name: 'Max', owner: { name: 'Jennifer' } }] } }
   )
 })
+
+test('clear the cache', async ({ equal, same, pass, plan, teardown }) => {
+  plan(6)
+
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      add(x: Int, y: Int): Int
+      hello: String
+    }
+  `
+
+  const resolvers = {
+    Query: {
+      async add (_, { x, y }) {
+        pass('add called only once')
+        return x + y
+      }
+    }
+  }
+
+  app.register(mercurius, {
+    schema,
+    resolvers
+  })
+
+  app.register(cache, {
+    policy: {
+      Query: {
+        add: true
+      }
+    }
+  })
+
+  const query = '{ add(x: 2, y: 2) }'
+
+  {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/graphql',
+      body: {
+        query
+      }
+    })
+
+    equal(res.statusCode, 200)
+    same(res.json(), {
+      data: {
+        add: 4
+      }
+    })
+  }
+
+  app.mercuriusCache.clear()
+
+  {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/graphql',
+      body: {
+        query
+      }
+    })
+
+    equal(res.statusCode, 200)
+    same(res.json(), {
+      data: {
+        add: 4
+      }
+    })
+  }
+})
