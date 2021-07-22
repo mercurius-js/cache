@@ -265,3 +265,11 @@ test('clear the cache', async ({ equal, same, pass, plan, teardown }) => {
     })
   }
 })
+
+test('missing policy', async (t) => {
+  const app = fastify()
+  app.register(mercurius)
+  app.register(cache)
+
+  await t.rejects(app.ready())
+})
