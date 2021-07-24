@@ -42,9 +42,22 @@ function setupSchema (schema, policy, cache) {
 function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver) {
   const name = prefix + '.' + fieldName
   cache.define(name, {
-    serialize ({ self, arg }) {
+    serialize ({ self, arg, info }) {
+      // We need to cache only for the selected fields to support Federation
+      // TODO detect if we really need to do this in most cases
+      const fields = []
+      for (const node of info.fieldNodes) {
+        if (!node.selectionSet) {
+          continue
+        }
+        for (const selection of node.selectionSet.selections) {
+          fields.push(selection.name.value)
+        }
+      }
+      fields.sort()
+
       // We must skip ctx and info as they are not easy to serialize
-      return { self, arg }
+      return { self, arg, fields }
     }
   }, async function ({ self, arg, ctx, info }) {
     const res = await originalFieldResolver(self, arg, ctx, info)

@@ -189,6 +189,7 @@ test('gateway - should cache it all', async (t) => {
     topPosts(count: 2) {
       pid,
       category {
+        id
         name
       }
     }
@@ -235,12 +236,14 @@ test('gateway - should cache it all', async (t) => {
         {
           pid: 'p1',
           category: {
+            id: 'c1',
             name: 'Food'
           }
         },
         {
           pid: 'p2',
           category: {
+            id: 'c2',
             name: 'Places'
           }
         }
@@ -272,208 +275,156 @@ test('gateway - should cache it all', async (t) => {
     t.same(res.json(), expected)
   }
 })
-/*
-test('gateway - should protect the schema if everything is not okay', async (t) => {
-  t.plan(1)
-  const app = await createTestGatewayServer(t)
 
-  const query = `query {
-  me {
-    id
-    name
-    nickname: name
-    topPosts(count: 2) {
-      pid
-      author {
-        id
-      }
-    }
-  }
-  topPosts(count: 2) {
-    pid
-  }
-}`
+test('gateway - should let different fields in the query ignore the cache', async (t) => {
+  // The number of the tests are the number of resolvers
+  // in the federeted services called for 1 request plus
+  // two assertions.
+  t.plan(14)
 
-  const res = await app.inject({
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-user': 'user' },
-    url: '/graphql',
-    body: JSON.stringify({ query })
-  })
-
-  t.same(JSON.parse(res.body), {
-    data: {
-      me: {
-        id: 'u1',
-        name: null,
-        nickname: null,
-        topPosts: [
-          {
-            pid: 'p1',
-            author: null
-          },
-          {
-            pid: 'p3',
-            author: null
-          }
-        ]
-      },
-      topPosts: null
-    },
-    errors: [
-      { message: 'Failed auth policy check on topPosts', locations: [{ line: 13, column: 3 }], path: ['topPosts'] },
-      { message: 'Failed auth policy check on name', locations: [{ line: 4, column: 5 }], path: ['me', 'name'] },
-      { message: 'Failed auth policy check on name', locations: [{ line: 5, column: 5 }], path: ['me', 'nickname'] },
-      { message: 'Failed auth policy check on author', locations: [{ line: 8, column: 7 }], path: ['me', 'topPosts', 0, 'author'] },
-      { message: 'Failed auth policy check on author', locations: [{ line: 8, column: 7 }], path: ['me', 'topPosts', 1, 'author'] }
-    ]
-  })
-})
-
-test('gateway - should handle custom errors', async (t) => {
-  t.plan(1)
   const app = await createTestGatewayServer(t, {
-    authContext (context) {
-      return {
-        identity: context.reply.request.headers['x-user']
-      }
-    },
-    async applyPolicy (authDirectiveAST, parent, args, context, info) {
-      if (context.auth.identity !== 'admin') {
-        return new Error(`custom auth error on ${info.fieldName}`)
-      }
-      return true
-    },
-    authDirective: 'auth'
-  })
-
-  const query = `query {
-  me {
-    id
-    name
-    nickname: name
-    topPosts(count: 2) {
-      pid
-      author {
-        id
+    // cache it all
+    policy: {
+      Query: {
+        categories: true,
+        topPosts: true
+      },
+      Post: {
+        __resolveReference: true,
+        category: true
+      },
+      Category: {
+        __resolveReference: true,
+        topPosts: true
       }
     }
-  }
-  topPosts(count: 2) {
-    pid
-  }
-}`
-
-  const res = await app.inject({
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-user': 'user' },
-    url: '/graphql',
-    body: JSON.stringify({ query })
   })
 
-  t.same(JSON.parse(res.body), {
-    data: {
-      me: {
-        id: 'u1',
-        name: null,
-        nickname: null,
-        topPosts: [
-          {
-            pid: 'p1',
-            author: null
-          },
-          {
-            pid: 'p3',
-            author: null
-          }
-        ]
-      },
-      topPosts: null
-    },
-    errors: [
-      { message: 'custom auth error on topPosts', locations: [{ line: 13, column: 3 }], path: ['topPosts'] },
-      { message: 'custom auth error on name', locations: [{ line: 4, column: 5 }], path: ['me', 'name'] },
-      { message: 'custom auth error on name', locations: [{ line: 5, column: 5 }], path: ['me', 'nickname'] },
-      { message: 'custom auth error on author', locations: [{ line: 8, column: 7 }], path: ['me', 'topPosts', 0, 'author'] },
-      { message: 'custom auth error on author', locations: [{ line: 8, column: 7 }], path: ['me', 'topPosts', 1, 'author'] }
-    ]
-  })
-})
-
-test('gateway - should handle when auth context is not defined', async (t) => {
-  t.plan(1)
-  const app = await createTestGatewayServer(t, {
-    async applyPolicy (authDirectiveAST, parent, args, context, info) {
-      if (context.other.identity !== 'admin') {
-        return new Error(`custom auth error on ${info.fieldName}`)
-      }
-      return true
-    },
-    authDirective: 'auth'
-  })
-
-  app.graphql.addHook('preGatewayExecution', async (schema, document, context, service) => {
-    Object.assign(context, {
-      other: {
-        identity: context.reply.request.headers['x-user']
-      }
-    })
-  })
-
-  const query = `query {
-  me {
-    id
-    name
-    nickname: name
-    topPosts(count: 2) {
-      pid
-      author {
-        id
+  const query1 = `query {
+    categories {
+      id
+      name
+      topPosts(count: 2) {
+        pid
+        category {
+          id
+        }
       }
     }
-  }
-  topPosts(count: 2) {
-    pid
-  }
-}`
+  }`
 
-  const res = await app.inject({
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-user': 'admin' },
-    url: '/graphql',
-    body: JSON.stringify({ query })
-  })
-
-  t.same(JSON.parse(res.body), {
+  const expected1 = {
     data: {
-      me: {
-        id: 'u1',
-        name: 'John',
-        nickname: 'John',
-        topPosts: [
-          {
-            pid: 'p1',
-            author: {
-              id: 'u1'
-            }
-          },
-          {
-            pid: 'p3',
-            author: {
-              id: 'u1'
-            }
-          }
-        ]
-      },
-      topPosts: [
+      categories: [
         {
-          pid: 'p1'
+          id: 'c1',
+          name: 'Food',
+          topPosts: [
+            {
+              pid: 'p1',
+              category: {
+                id: 'c1'
+              }
+            },
+            {
+              pid: 'p3',
+              category: {
+                id: 'c1'
+              }
+            }
+          ]
         },
         {
-          pid: 'p2'
+          id: 'c2',
+          name: 'Places',
+          topPosts: [
+            {
+              pid: 'p2',
+              category: {
+                id: 'c2'
+              }
+            }
+          ]
         }
       ]
     }
-  })
+  }
+
+  const query2 = `query {
+    categories {
+      id
+      name
+      topPosts(count: 2) {
+        pid
+        category {
+          id
+          name
+        }
+      }
+    }
+  }`
+
+  const expected2 = {
+    data: {
+      categories: [
+        {
+          id: 'c1',
+          name: 'Food',
+          topPosts: [
+            {
+              pid: 'p1',
+              category: {
+                id: 'c1',
+                name: 'Food'
+              }
+            },
+            {
+              pid: 'p3',
+              category: {
+                id: 'c1',
+                name: 'Food'
+              }
+            }
+          ]
+        },
+        {
+          id: 'c2',
+          name: 'Places',
+          topPosts: [
+            {
+              pid: 'p2',
+              category: {
+                id: 'c2',
+                name: 'Places'
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+
+  t.comment('first request')
+
+  {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/graphql',
+      body: { query: query1 }
+    })
+
+    t.same(res.json(), expected1)
+  }
+
+  t.comment('second request')
+
+  {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/graphql',
+      body: { query: query2 }
+    })
+
+    t.same(res.json(), expected2)
+  }
 })
-*/
