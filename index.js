@@ -3,33 +3,43 @@
 const fp = require('fastify-plugin')
 const { Cache } = require('async-cache-dedupe')
 
-function initializeCache (app, ttl, cacheSize) {
-  const cache = new Cache({
-    ttl,
-    cacheSize
-  })
-
-  app.mercuriusCache = cache
-}
-
 module.exports = fp(async function (app, { policy, ttl, cacheSize }) {
   if (typeof policy !== 'object') {
     throw new Error('policy must be an object')
   }
-  app.decorate('mercuriusCache', null)
 
-  // TODO validate merciuris is already registered
-
-  initializeCache(app, ttl, cacheSize)
-
+  // TODO validate mercurius is already registered
   // TODO validate policy
-  setupSchema(app.graphql.schema, policy, app.mercuriusCache)
+
+  let cache = null
+
+  app.graphql.cache = {
+    refresh () {
+      buildCache()
+      setupSchema(app.graphql.schema, policy, cache)
+    },
+
+    clear () {
+      cache.clear()
+    }
+  }
+
+  app.addHook('onReady', async () => {
+    app.graphql.cache.refresh()
+  })
 
   // Add hook to regenerate the resolvers when the schema is refreshed
   app.graphql.addHook('onGatewayReplaceSchema', async (instance, schema) => {
-    initializeCache(app, ttl, cacheSize)
-    setupSchema(schema, policy, app.mercuriusCache)
+    buildCache()
+    setupSchema(schema, policy, cache)
   })
+
+  function buildCache () {
+    cache = new Cache({
+      ttl,
+      cacheSize
+    })
+  }
 })
 
 function setupSchema (schema, policy, cache) {

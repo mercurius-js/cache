@@ -246,7 +246,7 @@ test('clear the cache', async ({ equal, same, pass, plan, teardown }) => {
     })
   }
 
-  app.mercuriusCache.clear()
+  app.graphql.cache.clear()
 
   {
     const res = await app.inject({

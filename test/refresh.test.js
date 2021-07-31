@@ -6,6 +6,7 @@ const { promisify } = require('util')
 const Fastify = require('fastify')
 const mercurius = require('mercurius')
 const mercuriusCache = require('..')
+const { buildSchema } = require('graphql')
 
 const immediate = promisify(setImmediate)
 
@@ -144,6 +145,137 @@ test('polling interval with a new schema should trigger refresh of schema policy
     `
 
     const res = await gateway.inject({
+      method: 'POST',
+      url: '/graphql',
+      body: { query }
+    })
+
+    t.same(res.json(), {
+      data: {
+        me: {
+          id: 'u1',
+          name: 'John',
+          lastName: 'Doe'
+        }
+      }
+    })
+  }
+
+  t.comment('refreshed service calls')
+  await getMeWithLastName()
+  await getMeWithLastName()
+})
+
+test('adds a mercuriusCache.refresh() method', async (t) => {
+  t.plan(6)
+
+  const user = {
+    id: 'u1',
+    name: 'John',
+    lastName: 'Doe'
+  }
+
+  const resolvers = {
+    Query: {
+      me: (root, args, context, info) => {
+        t.pass('resolver called')
+        return user
+      }
+    }
+  }
+
+  const userService = Fastify()
+  t.teardown(async () => {
+    await userService.close()
+  })
+
+  userService.register(mercurius, {
+    schema: `
+      type Query {
+        me: User
+      }
+
+      type User {
+        id: ID!
+        name: String
+      }
+    `,
+    resolvers: resolvers
+  })
+
+  userService.register(mercuriusCache, {
+    policy: {
+      Query: {
+        me: true
+      }
+    }
+  })
+
+  async function getMe () {
+    const query = `
+      query {
+        me {
+          id
+          name
+        }
+      }
+    `
+
+    const res = await userService.inject({
+      method: 'POST',
+      url: '/graphql',
+      body: { query }
+    })
+
+    t.same(res.json(), {
+      data: {
+        me: {
+          id: 'u1',
+          name: 'John'
+        }
+      }
+    })
+  }
+
+  await getMe()
+  await getMe()
+
+  t.comment('userService.graphql.cache.refresh()')
+
+  userService.graphql.replaceSchema(buildSchema(`
+      type Query {
+        me: User
+      }
+
+      type User {
+        id: ID!
+        name: String 
+        lastName: String
+      }
+    `)
+  )
+  userService.graphql.defineResolvers(resolvers)
+
+  // This is the new method added by this module
+  userService.graphql.cache.refresh()
+
+  // We need the event loop to actually spin twice to
+  // be able to propagate the change
+  await immediate()
+  await immediate()
+
+  async function getMeWithLastName () {
+    const query = `
+      query {
+        me {
+          id
+          name
+          lastName
+        }
+      }
+    `
+
+    const res = await userService.inject({
       method: 'POST',
       url: '/graphql',
       body: { query }
