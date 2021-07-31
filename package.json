@@ -23,6 +23,7 @@
   "homepage": "https://github.com/mercurius-js/cache#readme",
   "devDependencies": {
     "@fastify/pre-commit": "^2.0.2",
+    "@sinonjs/fake-timers": "^7.1.2",
     "fastify": "^3.18.1",
     "mercurius": "^8.0.0",
     "snazzy": "^9.0.0",
