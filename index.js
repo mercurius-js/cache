@@ -3,9 +3,11 @@
 const fp = require('fastify-plugin')
 const { Cache } = require('async-cache-dedupe')
 
-module.exports = fp(async function (app, { policy, ttl, cacheSize }) {
-  if (typeof policy !== 'object') {
+module.exports = fp(async function (app, { all, policy, ttl, cacheSize }) {
+  if (typeof policy !== 'object' && !all) {
     throw new Error('policy must be an object')
+  } else if (all && policy) {
+    throw new Error('policy and all options are exclusive')
   }
 
   // TODO validate mercurius is already registered
@@ -16,7 +18,7 @@ module.exports = fp(async function (app, { policy, ttl, cacheSize }) {
   app.graphql.cache = {
     refresh () {
       buildCache()
-      setupSchema(app.graphql.schema, policy, cache)
+      setupSchema(app.graphql.schema, policy, all, cache)
     },
 
     clear () {
@@ -31,7 +33,7 @@ module.exports = fp(async function (app, { policy, ttl, cacheSize }) {
   // Add hook to regenerate the resolvers when the schema is refreshed
   app.graphql.addHook('onGatewayReplaceSchema', async (instance, schema) => {
     buildCache()
-    setupSchema(schema, policy, cache)
+    setupSchema(schema, policy, all, cache)
   })
 
   function buildCache () {
@@ -42,10 +44,10 @@ module.exports = fp(async function (app, { policy, ttl, cacheSize }) {
   }
 })
 
-function setupSchema (schema, policy, cache) {
+function setupSchema (schema, policy, all, cache) {
   const schemaTypeMap = schema.getTypeMap()
   for (const schemaType of Object.values(schemaTypeMap)) {
-    const fieldPolicy = policy[schemaType]
+    const fieldPolicy = all || policy[schemaType]
     if (!fieldPolicy) {
       continue
     }
@@ -53,7 +55,7 @@ function setupSchema (schema, policy, cache) {
     // Handle fields on schema type
     if (typeof schemaType.getFields === 'function') {
       for (const [fieldName, field] of Object.entries(schemaType.getFields())) {
-        if (fieldPolicy[fieldName]) {
+        if (all || fieldPolicy[fieldName]) {
           // Override resolvers for caching purposes
           if (typeof field.resolve === 'function') {
             const originalFieldResolver = field.resolve

@@ -273,3 +273,111 @@ test('missing policy', async (t) => {
 
   await t.rejects(app.ready())
 })
+
+test('cache all resolvers', async ({ same, pass, plan, teardown }) => {
+  pass(4)
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const dogs = [{
+    name: 'Max'
+  }, {
+    name: 'Charlie'
+  }, {
+    name: 'Buddy'
+  }, {
+    name: 'Max'
+  }]
+
+  const owners = {
+    Max: {
+      name: 'Jennifer'
+    },
+    Charlie: {
+      name: 'Sarah'
+    },
+    Buddy: {
+      name: 'Tracy'
+    }
+  }
+
+  const schema = `
+    type Human {
+      name: String!
+    }
+
+    type Dog {
+      name: String!
+      owner: Human
+    }
+
+    type Query {
+      dogs: [Dog]
+    }
+  `
+
+  const resolvers = {
+    Query: {
+      dogs (_, params, { reply }) {
+        pass('call Query.dogs')
+        return dogs
+      }
+    }
+  }
+
+  const loaders = {
+    Dog: {
+      async owner (queries) {
+        pass('call Dog.owner')
+        return queries.map(({ obj }) => owners[obj.name])
+      }
+    }
+  }
+
+  app.register(mercurius, {
+    schema,
+    resolvers,
+    loaders
+  })
+
+  app.register(cache, {
+    all: true
+  })
+
+  const res = await app.inject({
+    method: 'POST',
+    url: '/graphql',
+    body: {
+      query: `{
+        dogs {
+          owner {
+            name
+          }
+        }
+      }`
+    }
+  })
+
+  same(res.json(),
+    { data: { dogs: [{ owner: { name: 'Jennifer' } }, { owner: { name: 'Sarah' } }, { owner: { name: 'Tracy' } }, { owner: { name: 'Jennifer' } }] } }
+  )
+
+  const res2 = await app.inject({
+    method: 'POST',
+    url: '/graphql',
+    body: {
+      query: `{
+        dogs {
+          name
+          owner {
+            name
+          }
+        }
+      }`
+    }
+  })
+
+  same(res2.json(),
+    { data: { dogs: [{ name: 'Max', owner: { name: 'Jennifer' } }, { name: 'Charlie', owner: { name: 'Sarah' } }, { name: 'Buddy', owner: { name: 'Tracy' } }, { name: 'Max', owner: { name: 'Jennifer' } }] } }
+  )
+})
