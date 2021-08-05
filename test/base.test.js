@@ -381,3 +381,85 @@ test('cache all resolvers', async ({ same, pass, plan, teardown }) => {
     { data: { dogs: [{ name: 'Max', owner: { name: 'Jennifer' } }, { name: 'Charlie', owner: { name: 'Sarah' } }, { name: 'Buddy', owner: { name: 'Tracy' } }, { name: 'Max', owner: { name: 'Jennifer' } }] } }
   )
 })
+
+test('skip the cache', async ({ equal, same, pass, plan, teardown }) => {
+  plan(8)
+
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      add(x: Int, y: Int): Int
+      hello: String
+    }
+  `
+
+  const resolvers = {
+    Query: {
+      async add (_, { x, y }) {
+        pass('add called twice')
+        return x + y
+      }
+    }
+  }
+
+  app.register(mercurius, {
+    schema,
+    resolvers
+  })
+
+  app.register(cache, {
+    async skip (ctx) {
+      pass('skip called')
+      if (ctx.reply.request.headers.authorization) {
+        return true
+      }
+      return false
+    },
+    policy: {
+      Query: {
+        add: true
+      }
+    }
+  })
+
+  const query = '{ add(x: 2, y: 2) }'
+
+  {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/graphql',
+      body: {
+        query
+      }
+    })
+
+    equal(res.statusCode, 200)
+    same(res.json(), {
+      data: {
+        add: 4
+      }
+    })
+  }
+
+  {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/graphql',
+      headers: {
+        Authorization: 'Bearer xyz'
+      },
+      body: {
+        query
+      }
+    })
+
+    equal(res.statusCode, 200)
+    same(res.json(), {
+      data: {
+        add: 4
+      }
+    })
+  }
+})
