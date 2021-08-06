@@ -3,7 +3,7 @@
 const fp = require('fastify-plugin')
 const { Cache } = require('async-cache-dedupe')
 
-module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip }) {
+module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, remoteCache }) {
   if (typeof policy !== 'object' && !all) {
     throw new Error('policy must be an object')
   } else if (all && policy) {
@@ -18,7 +18,7 @@ module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip }) 
   app.graphql.cache = {
     refresh () {
       buildCache()
-      setupSchema(app.graphql.schema, policy, all, cache, skip)
+      setupSchema(app.graphql.schema, policy, all, cache, skip, remoteCache)
     },
 
     clear () {
@@ -33,7 +33,7 @@ module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip }) 
   // Add hook to regenerate the resolvers when the schema is refreshed
   app.graphql.addHook('onGatewayReplaceSchema', async (instance, schema) => {
     buildCache()
-    setupSchema(schema, policy, all, cache, skip)
+    setupSchema(schema, policy, all, cache, skip, remoteCache)
   })
 
   function buildCache () {
@@ -44,7 +44,7 @@ module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip }) 
   }
 })
 
-function setupSchema (schema, policy, all, cache, skip) {
+function setupSchema (schema, policy, all, cache, skip, remoteCache) {
   const schemaTypeMap = schema.getTypeMap()
   for (const schemaType of Object.values(schemaTypeMap)) {
     const fieldPolicy = all || policy[schemaType]
@@ -59,7 +59,7 @@ function setupSchema (schema, policy, all, cache, skip) {
           // Override resolvers for caching purposes
           if (typeof field.resolve === 'function') {
             const originalFieldResolver = field.resolve
-            field.resolve = makeCachedResolver(schemaType.toString(), fieldName, cache, originalFieldResolver, skip)
+            field.resolve = makeCachedResolver(schemaType.toString(), fieldName, cache, originalFieldResolver, skip, remoteCache)
           }
         }
       }
@@ -67,7 +67,7 @@ function setupSchema (schema, policy, all, cache, skip) {
   }
 }
 
-function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, skip) {
+function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, skip, remoteCache) {
   const name = prefix + '.' + fieldName
   cache.define(name, {
     serialize ({ self, arg, info }) {
@@ -87,8 +87,18 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, sk
       // We must skip ctx and info as they are not easy to serialize
       return { self, arg, fields }
     }
-  }, async function ({ self, arg, ctx, info }) {
-    return originalFieldResolver(self, arg, ctx, info)
+  }, async function ({ self, arg, ctx, info }, key) {
+    if (remoteCache) {
+      const val = await remoteCache.get(name + '~' + key)
+      if (val) {
+        return val
+      }
+    }
+    const res = await originalFieldResolver(self, arg, ctx, info)
+    if (remoteCache) {
+      await remoteCache.set(name + '~' + key, JSON.stringify(res))
+    }
+    return res
   })
   return async function (self, arg, ctx, info) {
     if (skip && await skip(ctx)) {
