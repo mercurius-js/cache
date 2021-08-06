@@ -52,7 +52,16 @@ app.register(mercurius, {
 
 app.register(cache, {
   // all: true, // install the cache in all resolvers
-  // ttl: 10, // ten seconds, default 0
+  // ttl: 10, // cache deta in process for ten seconds, default 0
+  remoteCache: {
+    // The remote cache is useful as a larger cache
+    async get (key) {
+      return ... // fetch a key from Redis
+    },
+    async set (key, value) {
+      // set the value in Redis
+    }
+  },
   policy: {
     Query: {
       add: true
