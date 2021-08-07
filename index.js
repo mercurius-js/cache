@@ -101,7 +101,7 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, sk
     return res
   })
   return async function (self, arg, ctx, info) {
-    if (skip && await skip(ctx)) {
+    if (skip && await skip(self, arg, ctx, info)) {
       return originalFieldResolver(self, arg, ctx, info)
     }
     return cache[name]({ self, arg, ctx, info })
