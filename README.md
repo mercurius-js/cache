@@ -62,6 +62,13 @@ app.register(cache, {
       // set the value in Redis
     }
   },
+  // Useful to skip the cache for authenticated users or in some other condition
+  skip (self, arg, ctx, info) {
+    if (ctx.reply.request.headers.authorization) {
+      return true
+    }
+    return false
+  }
   policy: {
     Query: {
       add: true

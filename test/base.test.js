@@ -412,8 +412,8 @@ test('skip the cache', async ({ equal, same, pass, plan, teardown }) => {
   })
 
   app.register(cache, {
-    async skip (ctx) {
-      pass('skip called')
+    async skip (self, arg, ctx, info) {
+      same(arg, { x: 2, y: 2 })
       if (ctx.reply.request.headers.authorization) {
         return true
       }
