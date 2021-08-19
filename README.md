@@ -62,10 +62,10 @@ app.register(cache, {
       // set the value in Redis
     }
   },
-  onHit () {
+  onHit (type, fieldName) {
     // Called when a cached value is returned
   },
-  onMiss () {
+  onMiss (type, fieldName) {
     // Called when there is no value in the cache
     // It is not called if a resolver is skipped
   },

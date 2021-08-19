@@ -8,7 +8,7 @@ const cache = require('..')
 const FakeTimers = require('@sinonjs/fake-timers')
 
 test('cache a resolver', async ({ equal, same, pass, plan, teardown }) => {
-  plan(7)
+  plan(11)
 
   const app = fastify()
   teardown(app.close.bind(app))
@@ -38,10 +38,14 @@ test('cache a resolver', async ({ equal, same, pass, plan, teardown }) => {
   let misses = 0
 
   app.register(cache, {
-    onHit () {
+    onHit (type, name) {
+      equal(type, 'Query')
+      equal(name, 'add')
       hits++
     },
-    onMiss () {
+    onMiss (type, name) {
+      equal(type, 'Query')
+      equal(name, 'add')
       misses++
     },
     policy: {

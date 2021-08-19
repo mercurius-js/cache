@@ -72,6 +72,9 @@ function setupSchema (schema, policy, all, cache, skip, remoteCache, onHit, onMi
 
 function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, skip, remoteCache, onHit, onMiss) {
   const name = prefix + '.' + fieldName
+  onHit = onHit.bind(null, prefix, fieldName)
+  onMiss = onMiss.bind(null, prefix, fieldName)
+
   cache.define(name, {
     onHit,
     serialize ({ self, arg, info }) {
