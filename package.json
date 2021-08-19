@@ -31,7 +31,7 @@
     "tap": "^15.0.9"
   },
   "dependencies": {
-    "async-cache-dedupe": "^0.3.0",
+    "async-cache-dedupe": "^0.4.0",
     "fastify-plugin": "^3.0.0"
   },
   "precommit": "test"

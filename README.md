@@ -62,6 +62,13 @@ app.register(cache, {
       // set the value in Redis
     }
   },
+  onHit () {
+    // Called when a cached value is returned
+  },
+  onMiss () {
+    // Called when there is no value in the cache
+    // It is not called if a resolver is skipped
+  },
   // Useful to skip the cache for authenticated users or in some other condition
   skip (self, arg, ctx, info) {
     if (ctx.reply.request.headers.authorization) {

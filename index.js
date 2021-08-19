@@ -3,7 +3,7 @@
 const fp = require('fastify-plugin')
 const { Cache } = require('async-cache-dedupe')
 
-module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, remoteCache }) {
+module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, remoteCache, onHit, onMiss }) {
   if (typeof policy !== 'object' && !all) {
     throw new Error('policy must be an object')
   } else if (all && policy) {
@@ -13,12 +13,15 @@ module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, re
   // TODO validate mercurius is already registered
   // TODO validate policy
 
+  onHit = onHit || noop
+  onMiss = onMiss || noop
+
   let cache = null
 
   app.graphql.cache = {
     refresh () {
       buildCache()
-      setupSchema(app.graphql.schema, policy, all, cache, skip, remoteCache)
+      setupSchema(app.graphql.schema, policy, all, cache, skip, remoteCache, onHit, onMiss)
     },
 
     clear () {
@@ -33,7 +36,7 @@ module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, re
   // Add hook to regenerate the resolvers when the schema is refreshed
   app.graphql.addHook('onGatewayReplaceSchema', async (instance, schema) => {
     buildCache()
-    setupSchema(schema, policy, all, cache, skip, remoteCache)
+    setupSchema(schema, policy, all, cache, skip, remoteCache, onHit, onMiss)
   })
 
   function buildCache () {
@@ -44,7 +47,7 @@ module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, re
   }
 })
 
-function setupSchema (schema, policy, all, cache, skip, remoteCache) {
+function setupSchema (schema, policy, all, cache, skip, remoteCache, onHit, onMiss) {
   const schemaTypeMap = schema.getTypeMap()
   for (const schemaType of Object.values(schemaTypeMap)) {
     const fieldPolicy = all || policy[schemaType]
@@ -59,7 +62,7 @@ function setupSchema (schema, policy, all, cache, skip, remoteCache) {
           // Override resolvers for caching purposes
           if (typeof field.resolve === 'function') {
             const originalFieldResolver = field.resolve
-            field.resolve = makeCachedResolver(schemaType.toString(), fieldName, cache, originalFieldResolver, skip, remoteCache)
+            field.resolve = makeCachedResolver(schemaType.toString(), fieldName, cache, originalFieldResolver, skip, remoteCache, onHit, onMiss)
           }
         }
       }
@@ -67,9 +70,10 @@ function setupSchema (schema, policy, all, cache, skip, remoteCache) {
   }
 }
 
-function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, skip, remoteCache) {
+function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, skip, remoteCache, onHit, onMiss) {
   const name = prefix + '.' + fieldName
   cache.define(name, {
+    onHit,
     serialize ({ self, arg, info }) {
       // We need to cache only for the selected fields to support Federation
       // TODO detect if we really need to do this in most cases
@@ -91,9 +95,11 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, sk
     if (remoteCache) {
       const val = await remoteCache.get(name + '~' + key)
       if (val) {
+        onHit()
         return val
       }
     }
+    onMiss()
     const res = await originalFieldResolver(self, arg, ctx, info)
     if (remoteCache) {
       await remoteCache.set(name + '~' + key, JSON.stringify(res))
@@ -107,3 +113,5 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, sk
     return cache[name]({ self, arg, ctx, info })
   }
 }
+
+function noop () {}
