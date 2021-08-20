@@ -9,7 +9,6 @@ Setting the ttl accordingly is of critical importance.
 
 Under the covers it uses [`async-cache-dedupe`](https://github.com/mcollina/async-cache-dedupe)
 which will also deduplicate the calls.
-This 
 
 ## Install
 
