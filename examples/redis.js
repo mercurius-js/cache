@@ -48,7 +48,7 @@ app.register(cache, {
   },
   get: async function (key) {
     try {
-      return await app.redis.get(key)
+      return JSON.parse(await app.redis.get(key))
     } catch (err) {
       app.log.error({ msg: 'error on get from redis', err, key })
     }
