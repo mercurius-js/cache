@@ -105,7 +105,7 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, sk
     onMiss()
     const res = await originalFieldResolver(self, arg, ctx, info)
     if (remoteCache) {
-      await remoteCache.set(name + '~' + key, JSON.stringify(res))
+      await remoteCache.set(name + '~' + key, res)
     }
     return res
   })
