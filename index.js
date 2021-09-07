@@ -98,8 +98,9 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, sk
     if (remoteCache) {
       const val = await remoteCache.get(name + '~' + key)
       if (val) {
+        const parsed = JSON.parse(val)
         onHit()
-        return val
+        return parsed
       }
     }
     onMiss()

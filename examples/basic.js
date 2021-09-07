@@ -2,7 +2,7 @@
 
 const fastify = require('fastify')
 const mercurius = require('mercurius')
-const cache = require('.')
+const cache = require('mercurius-cache')
 
 const app = fastify({ logger: true })
 

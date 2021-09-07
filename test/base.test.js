@@ -574,3 +574,14 @@ test('external cache', async ({ equal, same, pass, plan, teardown }) => {
     })
   }
 })
+
+test('using both policy and all options', async (t) => {
+  const app = fastify()
+  app.register(mercurius)
+  app.register(cache, {
+    all: true,
+    policy: { Query: { add: true } }
+  })
+
+  await t.rejects(app.ready())
+})
