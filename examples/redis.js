@@ -56,7 +56,7 @@ app.register(cache, {
   },
   set: async function (key, value) {
     try {
-      await app.redis.set(key, value, 'EX', ttl)
+      await app.redis.set(key, JSON.stringify(value), 'EX', ttl)
     } catch (err) {
       app.log.error({ msg: 'error on set into redis', err, key })
     }
