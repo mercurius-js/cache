@@ -58,11 +58,12 @@ function setupSchema (schema, policy, all, cache, skip, remoteCache, onHit, onMi
     // Handle fields on schema type
     if (typeof schemaType.getFields === 'function') {
       for (const [fieldName, field] of Object.entries(schemaType.getFields())) {
-        if (all || fieldPolicy[fieldName]) {
+        const policy = fieldPolicy[fieldName]
+        if (all || policy) {
           // Override resolvers for caching purposes
           if (typeof field.resolve === 'function') {
             const originalFieldResolver = field.resolve
-            field.resolve = makeCachedResolver(schemaType.toString(), fieldName, cache, originalFieldResolver, skip, remoteCache, onHit, onMiss)
+            field.resolve = makeCachedResolver(schemaType.toString(), fieldName, cache, originalFieldResolver, policy, skip, remoteCache, onHit, onMiss)
           }
         }
       }
@@ -70,14 +71,14 @@ function setupSchema (schema, policy, all, cache, skip, remoteCache, onHit, onMi
   }
 }
 
-function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, skip, remoteCache, onHit, onMiss) {
+function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, policy, skip, remoteCache, onHit, onMiss) {
   const name = prefix + '.' + fieldName
   onHit = onHit.bind(null, prefix, fieldName)
   onMiss = onMiss.bind(null, prefix, fieldName)
 
   cache.define(name, {
     onHit,
-    serialize ({ self, arg, info }) {
+    serialize ({ self, arg, info, ctx }) {
       // We need to cache only for the selected fields to support Federation
       // TODO detect if we really need to do this in most cases
       const fields = []
@@ -91,10 +92,18 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, sk
       }
       fields.sort()
 
+      let extendKey
+      if (policy?.extendKey) {
+        const append = policy.extendKey(self, arg, ctx, info)
+        if (append) {
+          extendKey = '~' + append
+        }
+      }
+
       // We must skip ctx and info as they are not easy to serialize
-      return { self, arg, fields }
+      return { self, arg, fields, extendKey }
     }
-  }, async function ({ self, arg, ctx, info }, key) {
+  }, async function ({ self, arg, ctx, info, extendKey }, key) {
     if (remoteCache) {
       const val = await remoteCache.get(name + '~' + key)
       if (val) {
