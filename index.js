@@ -93,7 +93,7 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
       fields.sort()
 
       let extendKey
-      if (policy?.extendKey) {
+      if (policy && policy.extendKey) {
         const append = policy.extendKey(self, arg, ctx, info)
         if (append) {
           extendKey = '~' + append
