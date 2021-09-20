@@ -24,8 +24,8 @@
   "devDependencies": {
     "@fastify/pre-commit": "^2.0.2",
     "@sinonjs/fake-timers": "^8.0.0",
-    "fastify": "^3.18.1",
-    "mercurius": "^8.0.0",
+    "fastify": "^3.21.3",
+    "mercurius": "^8.2.1",
     "snazzy": "^9.0.0",
     "standard": "^16.0.3",
     "tap": "^15.0.9"
