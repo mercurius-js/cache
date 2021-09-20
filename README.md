@@ -93,7 +93,7 @@ Example
 
 - **policy~extendKey**
 
-extend the key to cache responses by different request, for example to enable custom cache per user; see [example/cache-per-user.js](example/cache-per-user.js) for a complete use case.
+extend the key to cache responses by different request, for example to enable custom cache per user; see [examples/cache-per-user.js](examples/cache-per-user.js) for a complete use case.
 
 ```js
   policy: {
@@ -116,13 +116,13 @@ Example
   all: true
 ```
 
-- **remoteCache**
+- **storage**
 
-default cache is in memory, the remote cache is useful for a larger cache. See [example/redis.js](example/redis.js) for a complete use case.  
+default cache is in memory, but a different storage can be used for a larger cache. See [examples/redis.js](examples/redis.js) for a complete use case.  
 Example  
 
 ```js
-  remoteCache: {
+  storage: {
     async get (key) {
       // fetch by key from storage
       return storage.get(key)

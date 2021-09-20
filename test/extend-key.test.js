@@ -145,7 +145,7 @@ test('cache per user using remoteCahe and extendKey', async ({ equal, same, tear
         }
       }
     },
-    remoteCache: {
+    storage: {
       async get (key) {
         return map.get(key)
       },

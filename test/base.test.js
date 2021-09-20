@@ -519,7 +519,7 @@ test('external cache', async ({ equal, same, pass, plan, teardown }) => {
 
   app.register(cache, {
     ttl: 1,
-    remoteCache: {
+    storage: {
       async get (key) {
         pass('get called with ' + key)
         return map.get(key)
