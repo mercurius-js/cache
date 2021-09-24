@@ -61,7 +61,7 @@ app.register(cache, {
       } catch (err) {
         app.log.error({ msg: 'error on set into redis', err, key })
       }
-    },
+    }
   },
   onHit: function (type, fieldName) {
     app.log.info({ msg: 'hit from cache', type, fieldName })
