@@ -46,20 +46,22 @@ app.register(cache, {
       hello: true
     }
   },
-  get: async function (key) {
-    try {
-      return JSON.parse(await app.redis.get(key))
-    } catch (err) {
-      app.log.error({ msg: 'error on get from redis', err, key })
-    }
-    return null
-  },
-  set: async function (key, value) {
-    try {
-      await app.redis.set(key, JSON.stringify(value), 'EX', ttl)
-    } catch (err) {
-      app.log.error({ msg: 'error on set into redis', err, key })
-    }
+  storage: {
+    get: async function (key) {
+      try {
+        return JSON.parse(await app.redis.get(key))
+      } catch (err) {
+        app.log.error({ msg: 'error on get from redis', err, key })
+      }
+      return null
+    },
+    set: async function (key, value) {
+      try {
+        await app.redis.set(key, JSON.stringify(value), 'EX', ttl)
+      } catch (err) {
+        app.log.error({ msg: 'error on set into redis', err, key })
+      }
+    },
   },
   onHit: function (type, fieldName) {
     app.log.info({ msg: 'hit from cache', type, fieldName })
