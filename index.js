@@ -78,6 +78,8 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
 
   cache.define(name, {
     onHit,
+    ttl: policy?.ttl,
+    cacheSize: policy?.cacheSize,
     serialize ({ self, arg, info, ctx }) {
       // We need to cache only for the selected fields to support Federation
       // TODO detect if we really need to do this in most cases
