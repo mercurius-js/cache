@@ -71,11 +71,20 @@ app.listen(3000)
 
 - **ttl**
 
-the time to live in seconds, default is zero, which means that the cache is disabled.
+the time to live in seconds; default is `0`, which means that the cache is disabled.
 Example  
 
 ```js
   ttl: 10
+```
+
+- **cacheSize**
+
+the maximum amount of entries to fit in the cache for each query, default `1024`.
+Example  
+
+```js
+  cacheSize: 2048
 ```
 
 - **policy**
@@ -94,6 +103,7 @@ Example
 - **policy~extendKey**
 
 extend the key to cache responses by different request, for example to enable custom cache per user; see [examples/cache-per-user.js](examples/cache-per-user.js) for a complete use case.
+Example  
 
 ```js
   policy: {
@@ -102,6 +112,38 @@ extend the key to cache responses by different request, for example to enable cu
         extendKey: function (source, args, context, info) {
           return context.userId ? `user:${context.userId}` : undefined
         }
+      }
+    }
+  }
+```
+
+- **policy~ttl**
+
+use a specific ttl for the policy, instead of the default one.  
+Example  
+
+```js
+  ttl: 10,
+  policy: {
+    Query: {
+      welcome: {
+        ttl: 5
+      }
+    }
+  }
+```
+
+- **policy~cacheSize**
+
+use a specific cacheSize for the policy, instead of the default one.  
+Example  
+
+```js
+  policy: {
+    cacheSize: 2048,
+    Query: {
+      welcome: {
+        cacheSize: 1024
       }
     }
   }
