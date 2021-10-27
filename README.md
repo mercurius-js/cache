@@ -149,6 +149,20 @@ Example
   }
 ```
 
+- **policy~skip**
+
+skip cache use for a specific condition.  
+Example  
+
+```js
+  skip (self, arg, ctx, info) {
+    if (ctx.reply.request.headers.authorization) {
+      return true
+    }
+    return false
+  }
+```
+
 - **all**
 
 use the cache in all resolvers; default is false. Use either `policy` or `all` but not both.  
@@ -195,6 +209,17 @@ Example
 ```js
   onMiss (type, fieldName) {
     console.log(`miss ${type} ${fieldName}`)
+  }
+```
+
+- **onSkip**
+
+called when the resolver is skipped, both by `skip` or `policy.skip`.
+Example  
+
+```js
+  onSkip (type, fieldName) {
+    console.log(`skip ${type} ${fieldName}`)
   }
 ```
 
