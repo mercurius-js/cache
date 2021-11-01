@@ -124,7 +124,8 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
   })
   return async function (self, arg, ctx, info) {
     if ((skip && await skip(self, arg, ctx, info)) ||
-      (policy && policy.skip && await policy.skip(self, arg, ctx, info)) || info?.operation?.operation === 'mutation') {
+      (info.operation && info.operation.operation === 'mutation') ||
+      (policy && policy.skip && await policy.skip(self, arg, ctx, info))) {
       onSkip()
       return originalFieldResolver(self, arg, ctx, info)
     }
