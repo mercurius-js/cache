@@ -589,7 +589,7 @@ test('using both policy and all options', async (t) => {
 test('skip the cache if operation is Mutation', async ({ equal, same, teardown }) => {
   const app = fastify()
   teardown(app.close.bind(app))
-  let hits = 0
+  let skipCount = 0
 
   const schema = `
     type Mutation {
@@ -616,7 +616,7 @@ test('skip the cache if operation is Mutation', async ({ equal, same, teardown }
     onSkip (type, name) {
       equal(type, 'Mutation')
       equal(name, 'add')
-      hits++
+      skipCount++
     }
   })
 
@@ -673,5 +673,5 @@ test('skip the cache if operation is Mutation', async ({ equal, same, teardown }
     })
   }
 
-  equal(hits, 3)
+  equal(skipCount, 3)
 })
