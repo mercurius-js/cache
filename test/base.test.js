@@ -585,3 +585,100 @@ test('using both policy and all options', async (t) => {
 
   await t.rejects(app.ready())
 })
+
+test('skip the cache if operation is Mutation', async ({ equal, same, teardown }) => {
+  const app = fastify()
+  teardown(app.close.bind(app))
+  let skipCount = 0
+  let hitCount = 0
+
+  const schema = `
+    type Mutation {
+      add(a: Int, b: Int): Int
+    }
+    type Query {
+      hello: String
+    }
+  `
+
+  const resolvers = {
+    Mutation: {
+      add: (_, { a, b }) => a + b
+    }
+  }
+
+  app.register(mercurius, {
+    schema,
+    resolvers
+  })
+
+  app.register(cache, {
+    all: true,
+    onSkip (type, name) {
+      equal(type, 'Mutation')
+      equal(name, 'add')
+      skipCount++
+    },
+    onHit (type, name) {
+      equal(type, 'Mutation')
+      equal(name, 'add')
+      hitCount++
+    }
+  })
+
+  const query = 'mutation { add(a: 11 b: 19) }'
+
+  {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/graphql',
+      body: {
+        query
+      }
+    })
+
+    equal(res.statusCode, 200)
+    same(res.json(), {
+      data: {
+        add: 30
+      }
+    })
+  }
+
+  {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/graphql',
+      body: {
+        query
+      }
+    })
+
+    equal(res.statusCode, 200)
+    same(res.json(), {
+      data: {
+        add: 30
+      }
+    })
+  }
+
+  {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/graphql',
+      body: {
+        query
+      }
+    })
+
+    equal(res.statusCode, 200)
+    same(res.json(), {
+      data: {
+        add: 30
+      }
+    })
+  }
+
+  equal(skipCount, 0)
+  equal(hitCount, 0)
+})
