@@ -590,6 +590,7 @@ test('skip the cache if operation is Mutation', async ({ equal, same, teardown }
   const app = fastify()
   teardown(app.close.bind(app))
   let skipCount = 0
+  let hitCount = 0
 
   const schema = `
     type Mutation {
@@ -617,6 +618,11 @@ test('skip the cache if operation is Mutation', async ({ equal, same, teardown }
       equal(type, 'Mutation')
       equal(name, 'add')
       skipCount++
+    },
+    onHit (type, name) {
+      equal(type, 'Mutation')
+      equal(name, 'add')
+      hitCount++
     }
   })
 
@@ -673,5 +679,6 @@ test('skip the cache if operation is Mutation', async ({ equal, same, teardown }
     })
   }
 
-  equal(skipCount, 3)
+  equal(skipCount, 0)
+  equal(hitCount, 0)
 })
