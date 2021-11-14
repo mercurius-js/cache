@@ -10,7 +10,16 @@ npx concurrently --raw -k \
   "npx wait-on tcp:3000 && node ./bench/gateway-bench.js"
 
 echo '==============================='
-echo '= Gateway Mode (1s TTL)     ='
+echo '= Gateway Mode (0s TTL)       ='
+echo '==============================='
+npx concurrently --raw -k \
+  "node ./bench/gateway-service-1.js" \
+  "node ./bench/gateway-service-2.js" \
+  "npx wait-on tcp:3001 tcp:3002 && node ./bench/gateway.js 0" \
+  "npx wait-on tcp:3000 && node ./bench/gateway-bench.js"
+
+echo '==============================='
+echo '= Gateway Mode (1s TTL)       ='
 echo '==============================='
 npx concurrently --raw -k \
   "node ./bench/gateway-service-1.js" \
@@ -19,7 +28,7 @@ npx concurrently --raw -k \
   "npx wait-on tcp:3000 && node ./bench/gateway-bench.js"
 
 echo '==============================='
-echo '= Gateway Mode (10s TTL)     ='
+echo '= Gateway Mode (10s TTL)      ='
 echo '==============================='
 npx concurrently --raw -k \
   "node ./bench/gateway-service-1.js" \

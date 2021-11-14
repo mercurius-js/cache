@@ -246,7 +246,7 @@ that adding a cache with 10ms TTL can improve the performance by 4x:
 ```
 $ sh bench.sh
 ===============================
-= Gateway Mode (not cache)    =
+= Gateway Mode (no cache)     =
 ===============================
 Running 10s test @ http://localhost:3000/graphql
 100 connections
@@ -267,8 +267,32 @@ Running 10s test @ http://localhost:3000/graphql
 Req/Bytes counts sampled once per second.
 
 34k requests in 11.03s, 11.8 MB read
+
 ===============================
-= Gateway Mode (1s TTL)     =
+= Gateway Mode (0s TTL)      =
+===============================
+Running 10s test @ http://localhost:3000/graphql
+100 connections
+
+┌─────────┬──────┬──────┬───────┬───────┬─────────┬─────────┬────────┐
+│ Stat    │ 2.5% │ 50%  │ 97.5% │ 99%   │ Avg     │ Stdev   │ Max    │
+├─────────┼──────┼──────┼───────┼───────┼─────────┼─────────┼────────┤
+│ Latency │ 7 ms │ 7 ms │ 11 ms │ 18 ms │ 7.48 ms │ 3.47 ms │ 139 ms │
+└─────────┴──────┴──────┴───────┴───────┴─────────┴─────────┴────────┘
+┌───────────┬─────────┬─────────┬─────────┬─────────┬──────────┬─────────┬─────────┐
+│ Stat      │ 1%      │ 2.5%    │ 50%     │ 97.5%   │ Avg      │ Stdev   │ Min     │
+├───────────┼─────────┼─────────┼─────────┼─────────┼──────────┼─────────┼─────────┤
+│ Req/Sec   │ 6991    │ 6991    │ 13167   │ 13207   │ 12481.28 │ 1752.21 │ 6988    │
+├───────────┼─────────┼─────────┼─────────┼─────────┼──────────┼─────────┼─────────┤
+│ Bytes/Sec │ 2.45 MB │ 2.45 MB │ 4.61 MB │ 4.62 MB │ 4.37 MB  │ 613 kB  │ 2.45 MB │
+└───────────┴─────────┴─────────┴─────────┴─────────┴──────────┴─────────┴─────────┘
+
+Req/Bytes counts sampled once per second.
+
+137k requests in 11.03s, 48 MB read
+
+===============================
+= Gateway Mode (1s TTL)       =
 ===============================
 Running 10s test @ http://localhost:3000/graphql
 100 connections
@@ -289,8 +313,9 @@ Running 10s test @ http://localhost:3000/graphql
 Req/Bytes counts sampled once per second.
 
 137k requests in 11.03s, 47.8 MB read
+
 ===============================
-= Gateway Mode (10s TTL)     =
+= Gateway Mode (10s TTL)      =
 ===============================
 Running 10s test @ http://localhost:3000/graphql
 100 connections
