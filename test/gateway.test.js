@@ -4,7 +4,6 @@ const { test } = require('tap')
 const Fastify = require('fastify')
 const mercurius = require('mercurius')
 const mercuriusCache = require('..')
-
 async function createTestService (t, schema, resolvers = {}) {
   const service = Fastify({ logger: { level: 'error' } })
   service.register(mercurius, {
@@ -157,6 +156,7 @@ test('gateway - should cache it all', async (t) => {
   t.plan(14)
 
   const app = await createTestGatewayServer(t, {
+    ttl: 4242,
     // cache it all
     policy: {
       Query: {
@@ -283,6 +283,7 @@ test('gateway - should let different fields in the query ignore the cache', asyn
   t.plan(14)
 
   const app = await createTestGatewayServer(t, {
+    ttl: 4242,
     // cache it all
     policy: {
       Query: {

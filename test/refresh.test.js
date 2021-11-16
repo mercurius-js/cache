@@ -73,6 +73,7 @@ test('polling interval with a new schema should trigger refresh of schema policy
   })
 
   await gateway.register(mercuriusCache, {
+    ttl: 4242,
     policy: {
       Query: {
         me: true
@@ -204,6 +205,7 @@ test('adds a mercuriusCache.refresh() method', async (t) => {
   })
 
   userService.register(mercuriusCache, {
+    ttl: 4242,
     policy: {
       Query: {
         me: true
