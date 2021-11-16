@@ -5,6 +5,10 @@ const fastify = require('fastify')
 const mercurius = require('mercurius')
 const cache = require('..')
 
+const { promisify } = require('util')
+
+const immediate = promisify(setImmediate)
+
 test('cache a resolver', async ({ equal, same, pass, plan, teardown }) => {
   plan(11)
 
@@ -92,6 +96,83 @@ test('cache a resolver', async ({ equal, same, pass, plan, teardown }) => {
 
   equal(hits, 1)
   equal(misses, 1)
+})
+
+test('No TTL', async ({ equal, same, pass, plan, teardown }) => {
+  plan(13)
+
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      add(x: Int, y: Int): Int
+      hello: String
+    }
+  `
+
+  const resolvers = {
+    Query: {
+      async add (_, { x, y }) {
+        pass('add called only once')
+        await immediate()
+        return x + y
+      }
+    }
+  }
+
+  app.register(mercurius, {
+    schema,
+    resolvers
+  })
+
+  let hits = 0
+  let misses = 0
+
+  app.register(cache, {
+    onHit (type, name) {
+      equal(type, 'Query', 'on hit')
+      equal(name, 'add')
+      hits++
+    },
+    onMiss (type, name) {
+      equal(type, 'Query', 'on miss')
+      equal(name, 'add')
+      misses++
+    },
+    policy: {
+      Query: {
+        add: true
+      }
+    }
+  })
+
+  await Promise.all([
+    query(),
+    query()
+  ])
+
+  equal(hits, 1)
+  equal(misses, 2)
+
+  async function query () {
+    const query = '{ add(x: 2, y: 2) }'
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/graphql',
+      body: {
+        query
+      }
+    })
+
+    equal(res.statusCode, 200)
+    same(res.json(), {
+      data: {
+        add: 4
+      }
+    })
+  }
 })
 
 test('cache a nested resolver with loaders', async ({ same, pass, plan, teardown }) => {
