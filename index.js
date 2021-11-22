@@ -20,12 +20,12 @@ module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, st
   let cache = null
 
   app.graphql.cache = {
-    refresh () {
+    refresh() {
       buildCache()
       setupSchema(app.graphql.schema, policy, all, cache, skip, storage, onHit, onMiss, onSkip)
     },
 
-    clear () {
+    clear() {
       cache.clear()
     }
   }
@@ -40,15 +40,18 @@ module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, st
     setupSchema(schema, policy, all, cache, skip, storage, onHit, onMiss, onSkip)
   })
 
-  function buildCache () {
+  function buildCache() {
     cache = new Cache({
       ttl,
       cacheSize
     })
   }
+}, {
+  fastify: '3.x',
+  dependencies: ['mercurius']
 })
 
-function setupSchema (schema, policy, all, cache, skip, storage, onHit, onMiss, onSkip) {
+function setupSchema(schema, policy, all, cache, skip, storage, onHit, onMiss, onSkip) {
   const schemaTypeMap = schema.getTypeMap()
   for (const schemaType of Object.values(schemaTypeMap)) {
     const fieldPolicy = all || policy[schemaType]
@@ -72,7 +75,7 @@ function setupSchema (schema, policy, all, cache, skip, storage, onHit, onMiss, 
   }
 }
 
-function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, policy, skip, storage, onHit, onMiss, onSkip) {
+function makeCachedResolver(prefix, fieldName, cache, originalFieldResolver, policy, skip, storage, onHit, onMiss, onSkip) {
   const name = prefix + '.' + fieldName
   onHit = onHit.bind(null, prefix, fieldName)
   onMiss = onMiss.bind(null, prefix, fieldName)
@@ -82,7 +85,7 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
     onHit,
     ttl: policy && policy.ttl,
     cacheSize: policy && policy.cacheSize,
-    serialize ({ self, arg, info, ctx }) {
+    serialize({ self, arg, info, ctx }) {
       // We need to cache only for the selected fields to support Federation
       // TODO detect if we really need to do this in most cases
       const fields = []
@@ -137,4 +140,4 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
   }
 }
 
-function noop () { }
+function noop() { }
