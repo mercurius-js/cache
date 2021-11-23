@@ -37,8 +37,7 @@
     "ajv": "^6.12.6",
     "async-cache-dedupe": "^0.5.0",
     "fastify-plugin": "^3.0.0",
-    "fluent-json-schema": "^3.0.1",
-    "mercurius-cache": "^0.10.0"
+    "fluent-json-schema": "^3.0.1"
   },
   "precommit": "test"
 }
