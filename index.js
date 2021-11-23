@@ -2,15 +2,26 @@
 
 const fp = require('fastify-plugin')
 const { Cache } = require('async-cache-dedupe')
+const S = require('fluent-json-schema')
+const Ajv = require('ajv')
+const ajv = new Ajv()
 
 module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, storage, onHit, onMiss, onSkip, ...other }) {
-  if (typeof policy !== 'object' && !all) {
-    throw new Error('policy must be an object')
-  } else if (all && policy) {
+  const schema = S.object()
+    .prop('all', S.boolean().default(false))
+    .prop('policy', S.object().default({}))
+    .prop('ttl', S.integer().default(0))
+    .prop('cacheSize', S.integer().default(1024))
+    .prop('storage', S.object())
+    .valueOf()
+
+  const valid = ajv.validate(schema, { all, policy, ttl, cacheSize, storage })
+  if (!valid) throw new Error(ajv.errors)
+
+  if (all && policy) {
     throw new Error('policy and all options are exclusive')
   }
 
-  // TODO validate mercurius is already registered
   // TODO validate policy
 
   onHit = onHit || noop

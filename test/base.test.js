@@ -669,3 +669,33 @@ test('skip the cache if operation is Mutation', async ({ equal, same, teardown }
   equal(skipCount, 0)
   equal(hitCount, 0)
 })
+
+test('using all option as string', async (t) => {
+  const app = fastify()
+  app.register(mercurius)
+  app.register(cache, {
+    all: 'true'
+  })
+
+  await t.rejects(app.ready())
+})
+
+test('using ttl option as string', async (t) => {
+  const app = fastify()
+  app.register(mercurius)
+  app.register(cache, {
+    ttl: '10'
+  })
+
+  await t.rejects(app.ready())
+})
+
+test('using cacheSize option as string', async (t) => {
+  const app = fastify()
+  app.register(mercurius)
+  app.register(cache, {
+    ttl: '1024'
+  })
+
+  await t.rejects(app.ready())
+})
