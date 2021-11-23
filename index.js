@@ -47,7 +47,7 @@ module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, st
     })
   }
 }, {
-  fastify: '>=3.x',
+  fastify: '^3.x',
   dependencies: ['mercurius']
 })
 
