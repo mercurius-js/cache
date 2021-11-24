@@ -3,7 +3,7 @@
 const fp = require('fastify-plugin')
 const { Cache } = require('async-cache-dedupe')
 
-module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, storage, onHit, onMiss, onSkip, ...other }) {
+module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, storage, onHit, onMiss, onSkip, logInterval, ...other }) {
   if (typeof policy !== 'object' && !all) {
     throw new Error('policy must be an object')
   } else if (all && policy) {
@@ -18,26 +18,42 @@ module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, st
   onSkip = onSkip || noop
 
   let cache = null
+  let logTimer = null
+  let cacheReport = null
+
+  if (logInterval && policy.Query) {
+    initCacheReport()
+  }
 
   app.graphql.cache = {
     refresh () {
       buildCache()
-      setupSchema(app.graphql.schema, policy, all, cache, skip, storage, onHit, onMiss, onSkip)
+      setupSchema(app.graphql.schema, policy, all, cache, skip, storage, onHit, onMiss, onSkip, cacheReport)
     },
 
     clear () {
       cache.clear()
+      clearCacheReport()
     }
   }
 
   app.addHook('onReady', async () => {
     app.graphql.cache.refresh()
+    if (logInterval && policy.Query) {
+      logTimer = setInterval(logReport, logInterval * 1000).unref()
+    }
+  })
+
+  app.addHook('onClose', () => {
+    if (logTimer) {
+      clearInterval(logTimer)
+    }
   })
 
   // Add hook to regenerate the resolvers when the schema is refreshed
   app.graphql.addHook('onGatewayReplaceSchema', async (instance, schema) => {
     buildCache()
-    setupSchema(schema, policy, all, cache, skip, storage, onHit, onMiss, onSkip)
+    setupSchema(schema, policy, all, cache, skip, storage, onHit, onMiss, onSkip, cacheReport)
   })
 
   function buildCache () {
@@ -46,12 +62,36 @@ module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, st
       cacheSize
     })
   }
+
+  function initCacheReport () {
+    cacheReport = {}
+    for (const field of Object.keys(policy.Query)) {
+      const name = 'Query.' + field
+      cacheReport[name] = {}
+      cacheReport[name].hits = 0
+      cacheReport[name].misses = 0
+    }
+  }
+
+  function clearCacheReport () {
+    if (!cacheReport) return
+
+    for (const item of Object.keys(cacheReport)) {
+      cacheReport[item].hits = 0
+      cacheReport[item].misses = 0
+    }
+  }
+
+  function logReport () {
+    app.log.info(`Cache report - ${JSON.stringify(cacheReport)}`)
+    console.table(cacheReport)
+  }
 }, {
   fastify: '^3.x',
   dependencies: ['mercurius']
 })
 
-function setupSchema (schema, policy, all, cache, skip, storage, onHit, onMiss, onSkip) {
+function setupSchema (schema, policy, all, cache, skip, storage, onHit, onMiss, onSkip, cacheReport) {
   const schemaTypeMap = schema.getTypeMap()
   for (const schemaType of Object.values(schemaTypeMap)) {
     const fieldPolicy = all || policy[schemaType]
@@ -67,7 +107,7 @@ function setupSchema (schema, policy, all, cache, skip, storage, onHit, onMiss, 
           // Override resolvers for caching purposes
           if (typeof field.resolve === 'function') {
             const originalFieldResolver = field.resolve
-            field.resolve = makeCachedResolver(schemaType.toString(), fieldName, cache, originalFieldResolver, policy, skip, storage, onHit, onMiss, onSkip)
+            field.resolve = makeCachedResolver(schemaType.toString(), fieldName, cache, originalFieldResolver, policy, skip, storage, onHit, onMiss, onSkip, cacheReport)
           }
         }
       }
@@ -75,14 +115,29 @@ function setupSchema (schema, policy, all, cache, skip, storage, onHit, onMiss, 
   }
 }
 
-function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, policy, skip, storage, onHit, onMiss, onSkip) {
+function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, policy, skip, storage, onHit, onMiss, onSkip, cacheReport) {
   const name = prefix + '.' + fieldName
   onHit = onHit.bind(null, prefix, fieldName)
   onMiss = onMiss.bind(null, prefix, fieldName)
   onSkip = onSkip.bind(null, prefix, fieldName)
 
+  let onCacheHit = null
+  let onCacheMiss = null
+
+  if (cacheReport) {
+    onCacheHit = () => {
+      cacheReport[name].hits++
+      onHit()
+    }
+
+    onCacheMiss = () => {
+      cacheReport[name].misses++
+      onMiss()
+    }
+  }
+
   cache.define(name, {
-    onHit,
+    onHit: onCacheHit || onHit,
     ttl: policy && policy.ttl,
     cacheSize: policy && policy.cacheSize,
     serialize ({ self, arg, info, ctx }) {
@@ -118,7 +173,8 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
         return val
       }
     }
-    onMiss()
+
+    onCacheMiss ? onCacheMiss() : onMiss()
     const res = await originalFieldResolver(self, arg, ctx, info)
     if (storage) {
       await storage.set(name + '~' + key, res)
