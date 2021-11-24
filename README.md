@@ -237,6 +237,16 @@ Example
   }
 ```
 
+- **logInterval**
+
+This option enables cache report for hits/misses for all queries specified in the policy.
+The value of the interval is in *minutes*.  
+
+Example  
+
+```js
+  logInterval: 3
+```
 ## Benchmarks
 
 We have experienced up to 10x performance improvements in real-world scenarios.
