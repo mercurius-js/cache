@@ -83,8 +83,7 @@ module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, st
   }
 
   function logReport () {
-    app.log.info(`Cache report - ${JSON.stringify(cacheReport)}`)
-    console.table(cacheReport)
+    app.log.info({ cacheReport }, 'mercurius-cache report')
   }
 }, {
   fastify: '^3.x',

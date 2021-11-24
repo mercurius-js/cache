@@ -8,7 +8,7 @@ const split = require('split2')
 const FakeTimers = require('@sinonjs/fake-timers')
 const { request } = require('./helper')
 
-test('Log cache report without storage', async ({ equal, plan, fail, teardown }) => {
+test('Log cache report without storage', async ({ strictSame, plan, fail, teardown }) => {
   plan(2)
 
   let app = null
@@ -67,9 +67,9 @@ test('Log cache report without storage', async ({ equal, plan, fail, teardown })
 
     await clock.tickAsync(1000)
     await once(stream, 'data')
-    const { msg } = await once(stream, 'data')
+    const { cacheReport } = await once(stream, 'data')
 
-    equal(msg, 'Cache report - {"Query.add":{"hits":0,"misses":1}}')
+    strictSame(cacheReport, { 'Query.add': { hits: 0, misses: 1 } })
   }
 
   app.graphql.cache.clear()
@@ -80,9 +80,9 @@ test('Log cache report without storage', async ({ equal, plan, fail, teardown })
 
     await clock.tickAsync(1000)
     await once(stream, 'data')
-    const { msg } = await once(stream, 'data')
+    const { cacheReport } = await once(stream, 'data')
 
-    equal(msg, 'Cache report - {"Query.add":{"hits":1,"misses":1}}')
+    strictSame(cacheReport, { 'Query.add': { hits: 1, misses: 1 } })
   }
 })
 
