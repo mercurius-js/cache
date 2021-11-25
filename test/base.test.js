@@ -671,31 +671,94 @@ test('skip the cache if operation is Mutation', async ({ equal, same, teardown }
 })
 
 test('using all option as string', async (t) => {
+  t.plan(1)
   const app = fastify()
   app.register(mercurius)
-  app.register(cache, {
-    all: 'true'
-  })
 
-  await t.rejects(app.ready())
+  try {
+    await app.register(cache, {
+      all: 'true'
+    })
+  } catch (error) {
+    t.same(error, new Error('all must be an boolean'))
+  }
 })
 
 test('using ttl option as string', async (t) => {
+  t.plan(1)
   const app = fastify()
   app.register(mercurius)
-  app.register(cache, {
-    ttl: '10'
-  })
-
-  await t.rejects(app.ready())
+  try {
+    await app.register(cache, {
+      ttl: '10'
+    })
+  } catch (error) {
+    t.same(error, new Error('ttl must be a number'))
+  }
 })
 
 test('using cacheSize option as string', async (t) => {
+  t.plan(1)
   const app = fastify()
   app.register(mercurius)
-  app.register(cache, {
-    ttl: '1024'
-  })
+  try {
+    await app.register(cache, {
+      cacheSize: '1024'
+    })
+  } catch (error) {
+    t.same(error, new Error('cacheSize must be a number'))
+  }
+})
 
-  await t.rejects(app.ready())
+test('using onHit option as string', async (t) => {
+  t.plan(1)
+  const app = fastify()
+  app.register(mercurius)
+  try {
+    await app.register(cache, {
+      onHit: 'not a function'
+    })
+  } catch (error) {
+    t.same(error, new Error('onHit must be a function'))
+  }
+})
+
+test('using onMiss option as string', async (t) => {
+  t.plan(1)
+  const app = fastify()
+  app.register(mercurius)
+  try {
+    await app.register(cache, {
+      onMiss: 'not a function'
+    })
+  } catch (error) {
+    t.same(error, new Error('onMiss must be a function'))
+  }
+})
+
+test('using onSkip option as string', async (t) => {
+  t.plan(1)
+  const app = fastify()
+  app.register(mercurius)
+  try {
+    await app.register(cache, {
+      onSkip: 'not a function'
+    })
+  } catch (error) {
+    t.same(error, new Error('onSkip must be a function'))
+  }
+})
+
+test('using policy option as string', async (t) => {
+  t.plan(1)
+  const app = fastify()
+  app.register(mercurius)
+  try {
+    await app.register(cache, {
+      policy: 'not an object',
+      all: false
+    })
+  } catch (error) {
+    t.same(error, new Error('policy must be an object'))
+  }
 })

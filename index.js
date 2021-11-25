@@ -2,27 +2,12 @@
 
 const fp = require('fastify-plugin')
 const { Cache } = require('async-cache-dedupe')
-const S = require('fluent-json-schema')
-const Ajv = require('ajv')
-const ajv = new Ajv()
+const { validateOpts } = require('./lib/validation')
 
-module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, storage, onHit, onMiss, onSkip, ...other }) {
-  const schema = S.object()
-    .prop('all', S.boolean().default(false))
-    .prop('policy', S.object().default({}))
-    .prop('ttl', S.integer().default(0))
-    .prop('cacheSize', S.integer().default(1024))
-    .prop('storage', S.object())
-    .valueOf()
+module.exports = fp(async function (app, opts) {
+  validateOpts(opts)
 
-  const valid = ajv.validate(schema, { all, policy, ttl, cacheSize, storage })
-  if (!valid) throw new Error(ajv.errors)
-
-  if (all && policy) {
-    throw new Error('policy and all options are exclusive')
-  }
-
-  // TODO validate policy
+  let { all, policy, ttl, cacheSize, skip, storage, onHit, onMiss, onSkip } = opts
 
   onHit = onHit || noop
   onMiss = onMiss || noop
