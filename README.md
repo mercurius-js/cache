@@ -240,7 +240,7 @@ Example
 - **logInterval**
 
 This option enables cache report with hit/miss count for all queries specified in the policy.
-The value of the interval is in *minutes*.  
+The value of the interval is in *seconds*.  
 
 Example  
 

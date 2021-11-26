@@ -21,7 +21,8 @@ module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, st
   let logTimer = null
   let cacheReport = null
 
-  if (logInterval && policy.Query) {
+  const cacheReportingEnabled = logInterval && ((policy && policy.Query) || all)
+  if (cacheReportingEnabled) {
     initCacheReport()
   }
 
@@ -39,7 +40,7 @@ module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, st
 
   app.addHook('onReady', async () => {
     app.graphql.cache.refresh()
-    if (logInterval && policy.Query) {
+    if (cacheReportingEnabled) {
       logTimer = setInterval(logReport, logInterval * 1000).unref()
     }
   })
@@ -65,7 +66,11 @@ module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, st
 
   function initCacheReport () {
     cacheReport = {}
-    for (const field of Object.keys(policy.Query)) {
+
+    const schema = app.graphql.schema
+    const fields = all ? Object.keys(schema.getQueryType().getFields()) : Object.keys(policy.Query)
+
+    for (const field of fields) {
       const name = 'Query.' + field
       cacheReport[name] = {}
       cacheReport[name].hits = 0

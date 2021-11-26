@@ -8,7 +8,7 @@ const split = require('split2')
 const FakeTimers = require('@sinonjs/fake-timers')
 const { request } = require('./helper')
 
-test('Log cache report without storage', async ({ strictSame, plan, fail, teardown }) => {
+test('Log cache report with policy specified', async ({ strictSame, plan, fail, teardown }) => {
   plan(2)
 
   let app = null
@@ -57,6 +57,80 @@ test('Log cache report without storage', async ({ strictSame, plan, fail, teardo
         add: true
       }
     },
+    logInterval: 1
+  })
+
+  const query = '{ add(x: 2, y: 2) }'
+
+  {
+    await request({ app, query })
+
+    await clock.tickAsync(1000)
+    await once(stream, 'data')
+    const { cacheReport } = await once(stream, 'data')
+
+    strictSame(cacheReport, { 'Query.add': { hits: 0, misses: 1 } })
+  }
+
+  app.graphql.cache.clear()
+
+  {
+    await request({ app, query })
+    await request({ app, query })
+
+    await clock.tickAsync(1000)
+    await once(stream, 'data')
+    const { cacheReport } = await once(stream, 'data')
+
+    strictSame(cacheReport, { 'Query.add': { hits: 1, misses: 1 } })
+  }
+})
+
+test('Log cache report with all specified', async ({ strictSame, plan, fail, teardown }) => {
+  plan(2)
+
+  let app = null
+  const stream = split(JSON.parse)
+  try {
+    app = fastify({
+      logger: {
+        stream: stream
+      }
+    })
+  } catch (e) {
+    fail()
+  }
+
+  teardown(app.close.bind(app))
+
+  const clock = FakeTimers.install({
+    shouldAdvanceTime: true,
+    advanceTimeDelta: 10
+  })
+  teardown(() => clock.uninstall())
+
+  const schema = `
+    type Query {
+      add(x: Int, y: Int): Int
+    }
+  `
+
+  const resolvers = {
+    Query: {
+      async add (_, { x, y }) {
+        return x + y
+      }
+    }
+  }
+
+  app.register(mercurius, {
+    schema,
+    resolvers
+  })
+
+  app.register(cache, {
+    ttl: 1,
+    all: true,
     logInterval: 1
   })
 
