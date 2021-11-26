@@ -160,7 +160,7 @@ test('Log cache report with all specified', async ({ strictSame, plan, fail, tea
   }
 })
 
-test('should not produce a cache report if logTimer not specified', async ({ pass, plan, fail, teardown }) => {
+test('should not produce a cache report if logInterval not specified', async ({ pass, plan, fail, teardown }) => {
   plan(1)
 
   let app = null
@@ -231,7 +231,7 @@ function once (emitter, name) {
     const timeout = setTimeout(() => {
       emitter.destroy()
       reject(new Error('Timeout reached'))
-    }, 5000)
+    }, 2000)
     timeout.unref()
     if (name !== 'error') emitter.once('error', reject)
     emitter.once(name, (...args) => {
