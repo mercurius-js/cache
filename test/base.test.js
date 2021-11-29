@@ -668,102 +668,59 @@ test('skip the cache if operation is Mutation', async ({ equal, same, teardown }
 
   equal(skipCount, 0)
   equal(hitCount, 0)
-})
+});
 
-test('using all option as string', async (t) => {
-  t.plan(1)
-  const app = fastify()
-  app.register(mercurius)
-
-  try {
-    await app.register(cache, {
-      all: 'true'
-    })
-  } catch (error) {
-    t.same(error, new Error('all must be an boolean'))
+[
+  {
+    title: 'using all option as string',
+    cacheConfig: { all: 'true' },
+    expect: 'all must be an boolean'
+  },
+  {
+    title: 'using ttl option as string',
+    cacheConfig: { ttl: '10' },
+    expect: 'ttl must be a number'
+  },
+  {
+    title: 'using cacheSize option as string',
+    cacheConfig: { cacheSize: '1024' },
+    expect: 'cacheSize must be a number'
+  },
+  {
+    title: 'using onHit option as string',
+    cacheConfig: { onHit: 'not a function' },
+    expect: 'onHit must be a function'
+  },
+  {
+    title: 'using onMiss option as string',
+    cacheConfig: { onMiss: 'not a function' },
+    expect: 'onMiss must be a function'
+  },
+  {
+    title: 'using onSkip option as string',
+    cacheConfig: { onSkip: 'not a function' },
+    expect: 'onSkip must be a function'
+  },
+  {
+    title: 'using policy option as string',
+    cacheConfig: { policy: 'not an object' },
+    expect: 'policy must be an object'
   }
+].forEach(useCase => {
+  test(useCase.title, async (t) => {
+    t.plan(1)
+    const app = fastify()
+    app.register(mercurius)
+
+    try {
+      await app.register(cache, useCase.cacheConfig)
+    } catch (error) {
+      t.same(error, new Error(useCase.expect))
+    }
+  })
 })
 
-test('using ttl option as string', async (t) => {
-  t.plan(1)
-  const app = fastify()
-  app.register(mercurius)
-  try {
-    await app.register(cache, {
-      ttl: '10'
-    })
-  } catch (error) {
-    t.same(error, new Error('ttl must be a number'))
-  }
-})
-
-test('using cacheSize option as string', async (t) => {
-  t.plan(1)
-  const app = fastify()
-  app.register(mercurius)
-  try {
-    await app.register(cache, {
-      cacheSize: '1024'
-    })
-  } catch (error) {
-    t.same(error, new Error('cacheSize must be a number'))
-  }
-})
-
-test('using onHit option as string', async (t) => {
-  t.plan(1)
-  const app = fastify()
-  app.register(mercurius)
-  try {
-    await app.register(cache, {
-      onHit: 'not a function'
-    })
-  } catch (error) {
-    t.same(error, new Error('onHit must be a function'))
-  }
-})
-
-test('using onMiss option as string', async (t) => {
-  t.plan(1)
-  const app = fastify()
-  app.register(mercurius)
-  try {
-    await app.register(cache, {
-      onMiss: 'not a function'
-    })
-  } catch (error) {
-    t.same(error, new Error('onMiss must be a function'))
-  }
-})
-
-test('using onSkip option as string', async (t) => {
-  t.plan(1)
-  const app = fastify()
-  app.register(mercurius)
-  try {
-    await app.register(cache, {
-      onSkip: 'not a function'
-    })
-  } catch (error) {
-    t.same(error, new Error('onSkip must be a function'))
-  }
-})
-
-test('using policy option as string', async (t) => {
-  t.plan(1)
-  const app = fastify()
-  app.register(mercurius)
-  try {
-    await app.register(cache, {
-      policy: 'not an object',
-      all: false
-    })
-  } catch (error) {
-    t.same(error, new Error('policy must be an object'))
-  }
-})
-
-test('Unmatched schema for Query', async ({ same, teardown }) => {
+test('Unmatched schema for Query', async ({ same, fail, teardown }) => {
   const app = fastify()
   teardown(app.close.bind(app))
 
@@ -812,6 +769,7 @@ test('Unmatched schema for Query', async ({ same, teardown }) => {
           query
         }
       })
+      fail('should not load correctly')
     } catch (error) {
       same(error, new Error('Query does not match schema'))
     }
