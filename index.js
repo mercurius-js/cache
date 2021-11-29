@@ -49,6 +49,8 @@ module.exports = fp(async function (app, opts) {
 
 function setupSchema (schema, policy, all, cache, skip, storage, onHit, onMiss, onSkip) {
   const schemaTypeMap = schema.getTypeMap()
+  let queryKeys = policy ? Object.keys(policy.Query) : []
+
   for (const schemaType of Object.values(schemaTypeMap)) {
     const fieldPolicy = all || policy[schemaType]
     if (!fieldPolicy) {
@@ -60,6 +62,8 @@ function setupSchema (schema, policy, all, cache, skip, storage, onHit, onMiss, 
       for (const [fieldName, field] of Object.entries(schemaType.getFields())) {
         const policy = fieldPolicy[fieldName]
         if (all || policy) {
+          // validate schema vs query values
+          queryKeys = queryKeys.filter(key => key !== fieldName)
           // Override resolvers for caching purposes
           if (typeof field.resolve === 'function') {
             const originalFieldResolver = field.resolve
@@ -69,6 +73,7 @@ function setupSchema (schema, policy, all, cache, skip, storage, onHit, onMiss, 
       }
     }
   }
+  if (queryKeys.length) { throw new Error('Query does not match schema') }
 }
 
 function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, policy, skip, storage, onHit, onMiss, onSkip) {

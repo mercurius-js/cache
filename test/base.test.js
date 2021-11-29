@@ -762,3 +762,58 @@ test('using policy option as string', async (t) => {
     t.same(error, new Error('policy must be an object'))
   }
 })
+
+test('Unmatched schema for Query', async ({ same, teardown }) => {
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+      type Query {
+        add(x: Int, y: Int): Int
+      }
+    `
+
+  const resolvers = {
+    Query: {
+      async add (_, { x, y }) {
+        await immediate()
+        return x + y
+      }
+    }
+  }
+
+  app.register(mercurius, {
+    schema,
+    resolvers
+  })
+
+  app.register(cache, {
+    policy: {
+      Query: {
+        add: true,
+        foo: 'bar'
+      }
+    }
+  })
+
+  await Promise.all([
+    query(),
+    query()
+  ])
+
+  async function query () {
+    const query = '{ add(x: 2, y: 2) }'
+
+    try {
+      await app.inject({
+        method: 'POST',
+        url: '/graphql',
+        body: {
+          query
+        }
+      })
+    } catch (error) {
+      same(error, new Error('Query does not match schema'))
+    }
+  }
+})
