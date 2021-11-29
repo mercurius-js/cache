@@ -771,7 +771,7 @@ test('Unmatched schema for Query', async ({ same, fail, teardown }) => {
       })
       fail('should not load correctly')
     } catch (error) {
-      same(error, new Error('Query does not match schema'))
+      same(error, new Error('Query does not match schema: foo'))
     }
   }
 })

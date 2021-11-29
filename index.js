@@ -73,7 +73,7 @@ function setupSchema (schema, policy, all, cache, skip, storage, onHit, onMiss, 
       }
     }
   }
-  if (queryKeys.length) { throw new Error('Query does not match schema') }
+  if (queryKeys.length) { throw new Error(`Query does not match schema: ${queryKeys}`) }
 }
 
 function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, policy, skip, storage, onHit, onMiss, onSkip) {
