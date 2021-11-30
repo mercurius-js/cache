@@ -237,6 +237,29 @@ Example
   }
 ```
 
+- **logInterval**
+
+This option enables cache report with hit/miss count for all queries specified in the policy.
+The value of the interval is in *seconds*.  
+
+Example  
+
+```js
+  logInterval: 3
+```
+
+- **logReport**
+
+custom function for logging cache hits/misses. called every `logInterval` seconds when the cache report is logged.
+
+Example  
+
+```js
+  logReport (cacheReport) {
+    console.log(`Cache report - ${cacheReport}`)
+  }
+```
+
 ## Benchmarks
 
 We have experienced up to 10x performance improvements in real-world scenarios.
