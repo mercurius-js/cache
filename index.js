@@ -3,11 +3,15 @@
 const fp = require('fastify-plugin')
 const { Cache } = require('async-cache-dedupe')
 
-module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, storage, onHit, onMiss, onSkip, logInterval, ...other }) {
+module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, storage, onHit, onMiss, onSkip, logInterval, logReport, ...other }) {
   if (typeof policy !== 'object' && !all) {
     throw new Error('policy must be an object')
   } else if (all && policy) {
     throw new Error('policy and all options are exclusive')
+  }
+
+  if (!logReport) {
+    logReport = defaultLogReport
   }
 
   // TODO validate mercurius is already registered
@@ -34,14 +38,15 @@ module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, st
 
     clear () {
       cache.clear()
-      clearCacheReport()
+      logReport(cacheReport)
+      clearCacheReport(cacheReport)
     }
   }
 
   app.addHook('onReady', async () => {
     app.graphql.cache.refresh()
     if (cacheReportingEnabled) {
-      logTimer = setInterval(logReport, logInterval * 1000).unref()
+      logTimer = setInterval(logAndClearCacheReport, logInterval * 1000, cacheReport).unref()
     }
   })
 
@@ -78,7 +83,7 @@ module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, st
     }
   }
 
-  function clearCacheReport () {
+  function clearCacheReport (cacheReport) {
     if (!cacheReport) return
 
     for (const item of Object.keys(cacheReport)) {
@@ -87,8 +92,13 @@ module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, st
     }
   }
 
-  function logReport () {
+  function defaultLogReport (cacheReport) {
     app.log.info({ cacheReport }, 'mercurius-cache report')
+  }
+
+  function logAndClearCacheReport (cacheReport) {
+    logReport(cacheReport)
+    clearCacheReport(cacheReport)
   }
 }, {
   fastify: '^3.x',

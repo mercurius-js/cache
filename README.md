@@ -247,6 +247,19 @@ Example
 ```js
   logInterval: 3
 ```
+
+- **logReport**
+
+custom function for logging cache hits/misses. called every `logInterval` seconds when the cache report is logged.
+
+Example  
+
+```js
+  logReport (cacheReport) {
+    console.log(`Cache report - ${cacheReport}`)
+  }
+```
+
 ## Benchmarks
 
 We have experienced up to 10x performance improvements in real-world scenarios.
