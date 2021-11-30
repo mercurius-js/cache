@@ -46,6 +46,9 @@ module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, st
       cacheSize
     })
   }
+}, {
+  fastify: '^3.x',
+  dependencies: ['mercurius']
 })
 
 function setupSchema (schema, policy, all, cache, skip, storage, onHit, onMiss, onSkip) {
