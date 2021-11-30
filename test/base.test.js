@@ -668,4 +668,101 @@ test('skip the cache if operation is Mutation', async ({ equal, same, teardown }
 
   equal(skipCount, 0)
   equal(hitCount, 0)
+});
+
+[
+  {
+    title: 'using all option as string',
+    cacheConfig: { all: 'true' },
+    expect: 'all must be an boolean'
+  },
+  {
+    title: 'using ttl option as string',
+    cacheConfig: { ttl: '10' },
+    expect: 'ttl must be a number'
+  },
+  {
+    title: 'using cacheSize option as string',
+    cacheConfig: { cacheSize: '1024' },
+    expect: 'cacheSize must be a number'
+  },
+  {
+    title: 'using onHit option as string',
+    cacheConfig: { onHit: 'not a function' },
+    expect: 'onHit must be a function'
+  },
+  {
+    title: 'using onMiss option as string',
+    cacheConfig: { onMiss: 'not a function' },
+    expect: 'onMiss must be a function'
+  },
+  {
+    title: 'using onSkip option as string',
+    cacheConfig: { onSkip: 'not a function' },
+    expect: 'onSkip must be a function'
+  },
+  {
+    title: 'using policy option as string',
+    cacheConfig: { policy: 'not an object' },
+    expect: 'policy must be an object'
+  }
+].forEach(useCase => {
+  test(useCase.title, async (t) => {
+    t.plan(1)
+    const app = fastify()
+    app.register(mercurius)
+
+    await t.rejects(app.register(cache, useCase.cacheConfig), useCase.expect)
+  })
+})
+
+test('Unmatched schema for Query', async ({ rejects, teardown }) => {
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+      type Query {
+        add(x: Int, y: Int): Int
+      }
+    `
+
+  const resolvers = {
+    Query: {
+      async add (_, { x, y }) {
+        await immediate()
+        return x + y
+      }
+    }
+  }
+
+  app.register(mercurius, {
+    schema,
+    resolvers
+  })
+
+  app.register(cache, {
+    policy: {
+      Query: {
+        add: true,
+        foo: 'bar'
+      }
+    }
+  })
+
+  await Promise.all([
+    query(),
+    query()
+  ])
+
+  async function query () {
+    const query = '{ add(x: 2, y: 2) }'
+
+    await rejects(app.inject({
+      method: 'POST',
+      url: '/graphql',
+      body: {
+        query
+      }
+    }), 'Query does not match schema: foo')
+  }
 })

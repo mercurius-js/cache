@@ -2,20 +2,16 @@
 
 const fp = require('fastify-plugin')
 const { Cache } = require('async-cache-dedupe')
+const { validateOpts } = require('./lib/validation')
 
-module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, storage, onHit, onMiss, onSkip, logInterval, logReport, ...other }) {
-  if (typeof policy !== 'object' && !all) {
-    throw new Error('policy must be an object')
-  } else if (all && policy) {
-    throw new Error('policy and all options are exclusive')
-  }
+module.exports = fp(async function (app, opts) {
+  validateOpts(opts)
+
+  let { all, policy, ttl, cacheSize, skip, storage, onHit, onMiss, onSkip, logInterval, logReport } = opts
 
   if (!logReport) {
     logReport = defaultLogReport
   }
-
-  // TODO validate mercurius is already registered
-  // TODO validate policy
 
   onHit = onHit || noop
   onMiss = onMiss || noop
@@ -107,6 +103,8 @@ module.exports = fp(async function (app, { all, policy, ttl, cacheSize, skip, st
 
 function setupSchema (schema, policy, all, cache, skip, storage, onHit, onMiss, onSkip, cacheReport) {
   const schemaTypeMap = schema.getTypeMap()
+  let queryKeys = policy ? Object.keys(policy.Query) : []
+
   for (const schemaType of Object.values(schemaTypeMap)) {
     const fieldPolicy = all || policy[schemaType]
     if (!fieldPolicy) {
@@ -118,6 +116,8 @@ function setupSchema (schema, policy, all, cache, skip, storage, onHit, onMiss, 
       for (const [fieldName, field] of Object.entries(schemaType.getFields())) {
         const policy = fieldPolicy[fieldName]
         if (all || policy) {
+          // validate schema vs query values
+          queryKeys = queryKeys.filter(key => key !== fieldName)
           // Override resolvers for caching purposes
           if (typeof field.resolve === 'function') {
             const originalFieldResolver = field.resolve
@@ -127,6 +127,7 @@ function setupSchema (schema, policy, all, cache, skip, storage, onHit, onMiss, 
       }
     }
   }
+  if (queryKeys.length) { throw new Error(`Query does not match schema: ${queryKeys}`) }
 }
 
 function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, policy, skip, storage, onHit, onMiss, onSkip, cacheReport) {
