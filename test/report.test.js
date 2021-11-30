@@ -146,7 +146,7 @@ test('Log cache report with all specified', async ({ strictSame, plan, fail, tea
   strictSame(data.cacheReport, { 'Query.add': { hits: 0, misses: 0 } })
 })
 
-test('should not produce a cache report if logInterval not specified', async ({ pass, plan, fail, teardown }) => {
+test('should not produce a cache report if logInterval not specified', async ({ pass, plan, endAll, fail, teardown }) => {
   plan(1)
 
   let app = null
@@ -209,6 +209,7 @@ test('should not produce a cache report if logInterval not specified', async ({ 
   } catch (error) {
     pass()
   }
+  endAll()
 })
 
 test('Log cache report using custom logReport function', async ({ type, plan, endAll, fail, teardown }) => {
