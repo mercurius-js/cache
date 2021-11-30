@@ -712,15 +712,11 @@ test('skip the cache if operation is Mutation', async ({ equal, same, teardown }
     const app = fastify()
     app.register(mercurius)
 
-    try {
-      await app.register(cache, useCase.cacheConfig)
-    } catch (error) {
-      t.same(error, new Error(useCase.expect))
-    }
+    await t.rejects(app.register(cache, useCase.cacheConfig), useCase.expect)
   })
 })
 
-test('Unmatched schema for Query', async ({ same, fail, teardown }) => {
+test('Unmatched schema for Query', async ({ rejects, teardown }) => {
   const app = fastify()
   teardown(app.close.bind(app))
 
@@ -761,17 +757,12 @@ test('Unmatched schema for Query', async ({ same, fail, teardown }) => {
   async function query () {
     const query = '{ add(x: 2, y: 2) }'
 
-    try {
-      await app.inject({
-        method: 'POST',
-        url: '/graphql',
-        body: {
-          query
-        }
-      })
-      fail('should not load correctly')
-    } catch (error) {
-      same(error, new Error('Query does not match schema: foo'))
-    }
+    await rejects(app.inject({
+      method: 'POST',
+      url: '/graphql',
+      body: {
+        query
+      }
+    }), 'Query does not match schema: foo')
   }
 })
