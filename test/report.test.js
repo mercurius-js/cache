@@ -27,7 +27,7 @@ test('Log cache report with policy specified', async ({ strictSame, plan, fail, 
 
   const clock = FakeTimers.install({
     shouldAdvanceTime: true,
-    advanceTimeDelta: 10
+    advanceTimeDelta: 100
   })
   teardown(() => clock.uninstall())
 
@@ -74,6 +74,7 @@ test('Log cache report with policy specified', async ({ strictSame, plan, fail, 
   strictSame(data.cacheReport, { 'Query.add': { hits: 1, misses: 1, skips: 0 } })
 
   await clock.tick(3000)
+
   data = await once(stream, 'data')
 
   strictSame(data.cacheReport, { 'Query.add': { hits: 0, misses: 0, skips: 0 } })
@@ -98,7 +99,7 @@ test('Log cache report with all specified', async ({ strictSame, plan, fail, tea
 
   const clock = FakeTimers.install({
     shouldAdvanceTime: true,
-    advanceTimeDelta: 10
+    advanceTimeDelta: 100
   })
   teardown(() => clock.uninstall())
 
@@ -165,7 +166,7 @@ test('Log skips correctly', async ({ strictSame, plan, fail, teardown }) => {
 
   const clock = FakeTimers.install({
     shouldAdvanceTime: true,
-    advanceTimeDelta: 10
+    advanceTimeDelta: 100
   })
   teardown(() => clock.uninstall())
 
@@ -235,7 +236,7 @@ test('Log cache report using custom logReport function', async ({ type, plan, en
 
   const clock = FakeTimers.install({
     shouldAdvanceTime: true,
-    advanceTimeDelta: 10
+    advanceTimeDelta: 100
   })
   teardown(() => clock.uninstall())
 
@@ -272,6 +273,7 @@ test('Log cache report using custom logReport function', async ({ type, plan, en
 
   await request({ app, query })
   await clock.tickAsync(1000)
+  await clock.nextAsync()
 
   await once(stream, 'data')
   await once(stream, 'data')
