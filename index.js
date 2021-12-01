@@ -76,6 +76,7 @@ module.exports = fp(async function (app, opts) {
       cacheReport[name] = {}
       cacheReport[name].hits = 0
       cacheReport[name].misses = 0
+      cacheReport[name].skips = 0
     }
   }
 
@@ -85,6 +86,7 @@ module.exports = fp(async function (app, opts) {
     for (const item of Object.keys(cacheReport)) {
       cacheReport[item].hits = 0
       cacheReport[item].misses = 0
+      cacheReport[item].skips = 0
     }
   }
 
@@ -138,6 +140,7 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
 
   let onCacheHit = null
   let onCacheMiss = null
+  let onCacheSkip = null
 
   if (cacheReport) {
     onCacheHit = () => {
@@ -148,6 +151,11 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
     onCacheMiss = () => {
       cacheReport[name].misses++
       onMiss()
+    }
+
+    onCacheSkip = () => {
+      cacheReport[name].skips++
+      onSkip()
     }
   }
 
@@ -204,7 +212,9 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
       isMutation ||
       (policy && policy.skip && (await policy.skip(self, arg, ctx, info)))
     ) {
-      if (!isMutation) onSkip()
+      if (!isMutation) {
+        onCacheSkip ? onCacheSkip() : onSkip()
+      }
       return originalFieldResolver(self, arg, ctx, info)
     }
     return cache[name]({ self, arg, ctx, info })
