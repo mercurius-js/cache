@@ -4,7 +4,8 @@
   "description": "Cache the results of your GraphQL resolvers, for Mercurius",
   "main": "index.js",
   "scripts": {
-    "test": "standard | snazzy && tap test/*test.js"
+    "test": "standard | snazzy && tap test/*test.js",
+    "lint:fix": "standard --fix"
   },
   "repository": {
     "type": "git",
@@ -35,7 +36,7 @@
     "wait-on": "^6.0.0"
   },
   "dependencies": {
-    "async-cache-dedupe": "^0.5.0",
+    "async-cache-dedupe": "https://github.com/simone-sanfratello/async-cache-dedupe.git#feat/storage",
     "fastify-plugin": "^3.0.0"
   },
   "precommit": "test"

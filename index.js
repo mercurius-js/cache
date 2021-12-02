@@ -3,59 +3,47 @@
 const fp = require('fastify-plugin')
 const { Cache } = require('async-cache-dedupe')
 const { validateOpts } = require('./lib/validation')
+const createReport = require('./lib/report')
 
 module.exports = fp(async function (app, opts) {
   validateOpts(opts)
 
+  // TODO doc drop option cacheSize
+  // TODO doc storage now is {type, options}
   let { all, policy, ttl, cacheSize, skip, storage, onHit, onMiss, onSkip, logInterval, logReport } = opts
-
-  if (!logReport) {
-    logReport = defaultLogReport
-  }
 
   onHit = onHit || noop
   onMiss = onMiss || noop
   onSkip = onSkip || noop
 
   let cache = null
-  let logTimer = null
-  let cacheReport = null
-
-  const cacheReportingEnabled = logInterval && ((policy && policy.Query) || all)
-  if (cacheReportingEnabled) {
-    initCacheReport()
-  }
+  let report = null
 
   app.graphql.cache = {
     refresh () {
       buildCache()
-      setupSchema(app.graphql.schema, policy, all, cache, skip, storage, onHit, onMiss, onSkip, cacheReport)
+      setupSchema(app.graphql.schema, policy, all, cache, skip, storage, onHit, onMiss, onSkip, report)
     },
 
     clear () {
       cache.clear()
-      logReport(cacheReport)
-      clearCacheReport(cacheReport)
+      report.clear()
     }
   }
 
   app.addHook('onReady', async () => {
     app.graphql.cache.refresh()
-    if (cacheReportingEnabled) {
-      logTimer = setInterval(logAndClearCacheReport, logInterval * 1000, cacheReport).unref()
-    }
+    report.refresh()
   })
 
   app.addHook('onClose', () => {
-    if (logTimer) {
-      clearInterval(logTimer)
-    }
+    report.close()
   })
 
   // Add hook to regenerate the resolvers when the schema is refreshed
   app.graphql.addHook('onGatewayReplaceSchema', async (instance, schema) => {
     buildCache()
-    setupSchema(schema, policy, all, cache, skip, storage, onHit, onMiss, onSkip, cacheReport)
+    setupSchema(schema, policy, all, cache, skip, storage, onHit, onMiss, onSkip, report)
   })
 
   function buildCache () {
@@ -63,47 +51,14 @@ module.exports = fp(async function (app, opts) {
       ttl,
       cacheSize
     })
-  }
-
-  function initCacheReport () {
-    cacheReport = {}
-
-    const schema = app.graphql.schema
-    const fields = all ? Object.keys(schema.getQueryType().getFields()) : Object.keys(policy.Query)
-
-    for (const field of fields) {
-      const name = 'Query.' + field
-      cacheReport[name] = {}
-      cacheReport[name].hits = 0
-      cacheReport[name].misses = 0
-      cacheReport[name].skips = 0
-    }
-  }
-
-  function clearCacheReport (cacheReport) {
-    if (!cacheReport) return
-
-    for (const item of Object.keys(cacheReport)) {
-      cacheReport[item].hits = 0
-      cacheReport[item].misses = 0
-      cacheReport[item].skips = 0
-    }
-  }
-
-  function defaultLogReport (cacheReport) {
-    app.log.info({ cacheReport }, 'mercurius-cache report')
-  }
-
-  function logAndClearCacheReport (cacheReport) {
-    logReport(cacheReport)
-    clearCacheReport(cacheReport)
+    report = createReport({ app, all, policy, logInterval, logReport })
   }
 }, {
   fastify: '^3.x',
   dependencies: ['mercurius']
 })
 
-function setupSchema (schema, policy, all, cache, skip, storage, onHit, onMiss, onSkip, cacheReport) {
+function setupSchema (schema, policy, all, cache, skip, storage, onHit, onMiss, onSkip, report) {
   const schemaTypeMap = schema.getTypeMap()
   let queryKeys = policy ? Object.keys(policy.Query) : []
 
@@ -123,7 +78,7 @@ function setupSchema (schema, policy, all, cache, skip, storage, onHit, onMiss, 
           // Override resolvers for caching purposes
           if (typeof field.resolve === 'function') {
             const originalFieldResolver = field.resolve
-            field.resolve = makeCachedResolver(schemaType.toString(), fieldName, cache, originalFieldResolver, policy, skip, storage, onHit, onMiss, onSkip, cacheReport)
+            field.resolve = makeCachedResolver(schemaType.toString(), fieldName, cache, originalFieldResolver, policy, skip, storage, onHit, onMiss, onSkip, report)
           }
         }
       }
@@ -132,35 +87,16 @@ function setupSchema (schema, policy, all, cache, skip, storage, onHit, onMiss, 
   if (queryKeys.length) { throw new Error(`Query does not match schema: ${queryKeys}`) }
 }
 
-function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, policy, skip, storage, onHit, onMiss, onSkip, cacheReport) {
+function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, policy, skip, storage, onHit, onMiss, onSkip, report) {
   const name = prefix + '.' + fieldName
   onHit = onHit.bind(null, prefix, fieldName)
   onMiss = onMiss.bind(null, prefix, fieldName)
   onSkip = onSkip.bind(null, prefix, fieldName)
 
-  let onCacheHit = null
-  let onCacheMiss = null
-  let onCacheSkip = null
-
-  if (cacheReport) {
-    onCacheHit = () => {
-      cacheReport[name].hits++
-      onHit()
-    }
-
-    onCacheMiss = () => {
-      cacheReport[name].misses++
-      onMiss()
-    }
-
-    onCacheSkip = () => {
-      cacheReport[name].skips++
-      onSkip()
-    }
-  }
+  report.wrap({ name, onHit, onMiss, onSkip })
 
   cache.define(name, {
-    onHit: onCacheHit || onHit,
+    onHit: report[name].onHit,
     ttl: policy && policy.ttl,
     cacheSize: policy && policy.cacheSize,
     serialize ({ self, arg, info, ctx }) {
@@ -192,12 +128,12 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
     if (storage) {
       const val = await storage.get(name + '~' + key)
       if (val) {
-        onHit()
+        report[name].onHit()
         return val
       }
     }
 
-    onCacheMiss ? onCacheMiss() : onMiss()
+    report[name].onMiss()
     const res = await originalFieldResolver(self, arg, ctx, info)
     if (storage) {
       await storage.set(name + '~' + key, res)
@@ -205,16 +141,16 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
     return res
   })
   return async function (self, arg, ctx, info) {
-    const isMutation =
-      info.operation && info.operation.operation === 'mutation'
+    // TODO dont cache also subscriptions
+    if (info.operation && info.operation.operation === 'mutation') {
+      return originalFieldResolver(self, arg, ctx, info)
+    }
+
     if (
       (skip && (await skip(self, arg, ctx, info))) ||
-      isMutation ||
       (policy && policy.skip && (await policy.skip(self, arg, ctx, info)))
     ) {
-      if (!isMutation) {
-        onCacheSkip ? onCacheSkip() : onSkip()
-      }
+      report[name].onSkip()
       return originalFieldResolver(self, arg, ctx, info)
     }
     return cache[name]({ self, arg, ctx, info })
