@@ -1,22 +1,18 @@
 'use strict'
 
+const { promisify } = require('util')
 const { test } = require('tap')
 const fastify = require('fastify')
 const mercurius = require('mercurius')
 const cache = require('..')
 
 const { request } = require('./helper')
-const FakeTimers = require('@sinonjs/fake-timers')
+
+const sleep = promisify(setTimeout)
 
 test('cache different policies with different options / ttl', async ({ equal, teardown }) => {
   const app = fastify()
   teardown(app.close.bind(app))
-
-  const clock = FakeTimers.install({
-    shouldAdvanceTime: true,
-    advanceTimeDelta: 50
-  })
-  teardown(() => clock.uninstall())
 
   const schema = `
   type Query {
@@ -34,7 +30,8 @@ test('cache different policies with different options / ttl', async ({ equal, te
 
   app.register(mercurius, { schema, resolvers })
 
-  const hits = { add: 0, sub: 0 }; const misses = { add: 0, sub: 0 }
+  const hits = { add: 0, sub: 0 }
+  const misses = { add: 0, sub: 0 }
 
   app.register(cache, {
     ttl: 100,
@@ -55,16 +52,16 @@ test('cache different policies with different options / ttl', async ({ equal, te
   await request({ app, query: '{ add(x: 1, y: 1) }' })
   await request({ app, query: '{ sub(x: 2, y: 2) }' })
 
-  await clock.tickAsync(2000)
+  await sleep(500)
   await request({ app, query: '{ add(x: 1, y: 1) }' })
 
-  await clock.tickAsync(2000)
+  await sleep(2000)
   await request({ app, query: '{ sub(x: 2, y: 2) }' })
 
   equal(hits.add, 1)
-  equal(misses.add, 2)
+  equal(misses.add, 1)
 
-  equal(hits.sub, 1)
+  equal(hits.sub, 0)
   equal(misses.sub, 2)
 })
 

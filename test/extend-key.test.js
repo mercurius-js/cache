@@ -132,7 +132,6 @@ test('cache per user using remoteCahe and extendKey', async ({ equal, same, tear
 
   let hits = 0
   let misses = 0
-  const map = new Map()
 
   app.register(cache, {
     ttl: 10,
@@ -143,14 +142,6 @@ test('cache per user using remoteCahe and extendKey', async ({ equal, same, tear
             return context.user ? `user:${context.user}` : undefined
           }
         }
-      }
-    },
-    storage: {
-      async get (key) {
-        return map.get(key)
-      },
-      async set (key, value) {
-        map.set(key, value)
       }
     },
     onHit () { hits++ },
@@ -207,5 +198,4 @@ test('cache per user using remoteCahe and extendKey', async ({ equal, same, tear
 
   equal(misses, 3)
   equal(hits, 6)
-  equal(map.size, 3)
 })

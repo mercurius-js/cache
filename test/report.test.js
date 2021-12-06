@@ -71,13 +71,13 @@ test('Log cache report with policy specified', async ({ strictSame, plan, fail, 
 
   data = await once(stream, 'data')
 
-  strictSame(data.cacheReport, { 'Query.add': { hits: 1, misses: 1, skips: 0 } })
+  strictSame(data.cacheReport, { 'Query.add': { dedupes: 0, hits: 1, misses: 1, skips: 0 } })
 
   await clock.tick(3000)
 
   data = await once(stream, 'data')
 
-  strictSame(data.cacheReport, { 'Query.add': { hits: 0, misses: 0, skips: 0 } })
+  strictSame(data.cacheReport, { 'Query.add': { dedupes: 0, hits: 0, misses: 0, skips: 0 } })
 })
 
 test('Log cache report with all specified', async ({ strictSame, plan, fail, teardown }) => {
@@ -139,12 +139,12 @@ test('Log cache report with all specified', async ({ strictSame, plan, fail, tea
 
   data = await once(stream, 'data')
 
-  strictSame(data.cacheReport, { 'Query.add': { hits: 1, misses: 1, skips: 0 } })
+  strictSame(data.cacheReport, { 'Query.add': { dedupes: 0, hits: 1, misses: 1, skips: 0 } })
 
   await clock.tickAsync(3000)
   data = await once(stream, 'data')
 
-  strictSame(data.cacheReport, { 'Query.add': { hits: 0, misses: 0, skips: 0 } })
+  strictSame(data.cacheReport, { 'Query.add': { dedupes: 0, hits: 0, misses: 0, skips: 0 } })
 })
 
 test('Log skips correctly', async ({ strictSame, plan, fail, teardown }) => {
@@ -209,12 +209,12 @@ test('Log skips correctly', async ({ strictSame, plan, fail, teardown }) => {
 
   data = await once(stream, 'data')
 
-  strictSame(data.cacheReport, { 'Query.add': { hits: 0, misses: 0, skips: 2 } })
+  strictSame(data.cacheReport, { 'Query.add': { dedupes: 0, hits: 0, misses: 0, skips: 2 } })
 
   await clock.tickAsync(3000)
   data = await once(stream, 'data')
 
-  strictSame(data.cacheReport, { 'Query.add': { hits: 0, misses: 0, skips: 0 } })
+  strictSame(data.cacheReport, { 'Query.add': { dedupes: 0, hits: 0, misses: 0, skips: 0 } })
 })
 
 test('Log cache report using custom logReport function', async ({ type, plan, endAll, fail, teardown }) => {
