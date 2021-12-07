@@ -6,7 +6,6 @@ const mercurius = require('mercurius')
 const cache = require('..')
 
 const { promisify } = require('util')
-
 const immediate = promisify(setImmediate)
 
 test('cache a resolver', async ({ equal, same, pass, plan, teardown }) => {
@@ -758,4 +757,78 @@ test('Unmatched schema for Query', async ({ rejects, teardown }) => {
       }
     }), 'Query does not match schema: foo')
   }
+})
+
+test('use references and invalidation', async ({ fail, pass, plan, teardown }) => {
+  plan(1)
+
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      get (id: Int): String
+    }
+    type Mutation {
+      set (id: Int): String
+    }
+  `
+
+  const resolvers = {
+    Query: {
+      async get (_, { id }) {
+        return 'get ' + id
+      }
+    },
+    Mutation: {
+      async set (_, { id }) {
+        return 'set ' + id
+      }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  let miss = 0
+  app.register(cache, {
+    ttl: 100,
+    // TODO document this
+    storage: { type: 'memory', options: { invalidation: true } },
+    onHit (type, name) {
+      fail()
+    },
+    onMiss (type, name) {
+      if (++miss === 2) { pass() }
+    },
+    policy: {
+      Query: {
+        get: {
+          references: async () => ['gets']
+        }
+      },
+      Mutation: {
+        set: {
+          invalidate: async () => ['gets']
+        }
+      }
+    }
+  })
+
+  await app.inject({
+    method: 'POST',
+    url: '/graphql',
+    body: { query: '{ get(id: 11) }' }
+  })
+
+  await app.inject({
+    method: 'POST',
+    url: '/graphql',
+    body: { query: 'mutation { set(id: 11) }' }
+  })
+
+  await app.inject({
+    method: 'POST',
+    url: '/graphql',
+    body: { query: '{ get(id: 11) }' }
+  })
 })

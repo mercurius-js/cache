@@ -52,6 +52,7 @@ test('cache different policies with different options / ttl', async ({ equal, te
   await request({ app, query: '{ add(x: 1, y: 1) }' })
   await request({ app, query: '{ sub(x: 2, y: 2) }' })
 
+  // TODO remove and use fake timer
   await sleep(500)
   await request({ app, query: '{ add(x: 1, y: 1) }' })
 
@@ -65,7 +66,7 @@ test('cache different policies with different options / ttl', async ({ equal, te
   equal(misses.sub, 2)
 })
 
-test('cache different policies with different options / cacheSize', async ({ equal, teardown }) => {
+test('cache different policies with different options / storage', async ({ equal, teardown }) => {
   const app = fastify()
   teardown(app.close.bind(app))
 
@@ -88,7 +89,6 @@ test('cache different policies with different options / cacheSize', async ({ equ
   const hits = { add: 0, sub: 0 }; const misses = { add: 0, sub: 0 }
 
   app.register(cache, {
-    cacheSize: 100,
     onHit (type, name) {
       hits[name]++
     },
@@ -97,8 +97,8 @@ test('cache different policies with different options / cacheSize', async ({ equ
     },
     policy: {
       Query: {
-        add: { cacheSize: 1 },
-        sub: { cacheSize: 2 }
+        add: { storage: { type: 'memory', options: { size: 1 } } },
+        sub: { storage: { type: 'memory', options: { size: 2 } } }
       }
     }
   })

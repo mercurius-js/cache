@@ -255,8 +255,8 @@ custom function for logging cache hits/misses. called every `logInterval` second
 Example  
 
 ```js
-  logReport (cacheReport) {
-    console.log(`Cache report - ${cacheReport}`)
+  logReport (data) {
+    console.log('Cache report', data)
   }
 ```
 

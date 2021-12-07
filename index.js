@@ -15,6 +15,8 @@ module.exports = fp(async function (app, opts) {
 
   // TODO doc drop option cacheSize
   // TODO doc storage now is {type, options} default memory
+
+  // TODO referenceTTL as max of ttls
   let { all, policy, ttl, skip, storage, onDedupe, onHit, onMiss, onSkip, logInterval, logReport } = opts
 
   onDedupe = onDedupe || noop
@@ -102,7 +104,6 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
   onMiss = onMiss.bind(null, prefix, fieldName)
   onSkip = onSkip.bind(null, prefix, fieldName)
 
-  // TODO test report onDedupe
   report.wrap({ name, onDedupe, onHit, onMiss, onSkip })
 
   let ttl, storage, references, invalidate
@@ -113,6 +114,7 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
     references = policy.references
     invalidate = policy.invalidate
   }
+
   if (storage) {
     storage = createStorage(storage.type, storage.options)
   }
@@ -129,7 +131,8 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
       // We need to cache only for the selected fields to support Federation
       // TODO detect if we really need to do this in most cases
       const fields = []
-      for (const node of info.fieldNodes) {
+      for (let i = 0; i < info.fieldNodes.length; i++) {
+        const node = info.fieldNodes[i]
         if (!node.selectionSet) {
           continue
         }
@@ -148,7 +151,6 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
       }
 
       // We must skip ctx and info as they are not easy to serialize
-
       // TODO use a fast stringify
       return JSON.stringify({ self, arg, fields, extendKey })
     }
@@ -176,8 +178,12 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
     }
 
     if (invalidate) {
-      // note: invalidate is async but no need to await
+      // note: invalidate is async but no await
+      // TODO test invalidate cant throw
       invalidate(self, arg, ctx, info, result)
+        .then(references => {
+          cache.invalidate(name, references)
+        })
     }
 
     return result
