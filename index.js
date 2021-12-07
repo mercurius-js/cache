@@ -1,6 +1,7 @@
 'use strict'
 
 // TODO bin for redis.gc + args
+// TODO examples: basic, redis, invalidation, references, gc, different storages/ttl per policy
 
 const fp = require('fastify-plugin')
 const { Cache } = require('async-cache-dedupe')
@@ -9,21 +10,7 @@ const { validateOpts } = require('./lib/validation')
 const createReport = require('./lib/report')
 
 module.exports = fp(async function (app, opts) {
-  // TODO validate opts.storage, opts.onDedupe
-  // TODO validate policy.invalidate, references, storage
-  validateOpts(opts)
-
-  // TODO doc drop option cacheSize
-  // TODO doc storage now is {type, options} default memory
-
-  // TODO referenceTTL as max of ttls
-  let { all, policy, ttl, skip, storage, onDedupe, onHit, onMiss, onSkip, logInterval, logReport } = opts
-
-  onDedupe = onDedupe || noop
-  onHit = onHit || noop
-  onMiss = onMiss || noop
-  onSkip = onSkip || noop
-  storage = storage || { type: 'memory' }
+  const { all, policy, ttl, skip, storage, onDedupe, onHit, onMiss, onSkip, logInterval, logReport } = validateOpts(app, opts)
 
   let cache = null
   let report = null
@@ -98,7 +85,7 @@ function setupSchema (schema, policy, all, cache, skip, onDedupe, onHit, onMiss,
 
 function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, policy, skip, onDedupe, onHit, onMiss, onSkip, report) {
   const name = prefix + '.' + fieldName
-  // TODO on... in policy
+
   onDedupe = onDedupe.bind(null, prefix, fieldName)
   onHit = onHit.bind(null, prefix, fieldName)
   onMiss = onMiss.bind(null, prefix, fieldName)
@@ -109,7 +96,6 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
   let ttl, storage, references, invalidate
   if (policy) {
     ttl = policy.ttl
-    // TODO doc storage, references, invalidate
     storage = policy.storage
     references = policy.references
     invalidate = policy.invalidate
@@ -127,6 +113,7 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
     storage,
     references,
 
+    // TODO use a custom policy serializer if any
     serialize ({ self, arg, info, ctx }) {
       // We need to cache only for the selected fields to support Federation
       // TODO detect if we really need to do this in most cases
@@ -180,6 +167,7 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
     if (invalidate) {
       // note: invalidate is async but no await
       // TODO test invalidate cant throw
+      // TODO support also sync invalidate
       invalidate(self, arg, ctx, info, result)
         .then(references => {
           cache.invalidate(name, references)
@@ -189,5 +177,3 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
     return result
   }
 }
-
-function noop () { }

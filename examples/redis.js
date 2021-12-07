@@ -5,6 +5,8 @@ const mercurius = require('mercurius')
 const redis = require('fastify-redis')
 const cache = require('mercurius-cache')
 
+// TODO update
+
 const app = fastify({ logger: true })
 
 const schema = `

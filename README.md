@@ -78,14 +78,42 @@ Example
   ttl: 10
 ```
 
-- **cacheSize**
+- **storage**
 
-the maximum amount of entries to fit in the cache for each query, default `1024`.
-Example  
+default cache is in memory, but a different storage can be used for a larger cache.  
+Storage options are:
 
-```js
-  cacheSize: 2048
-```
+- **type**: `memory` (default) or `redis`
+- **options**: depends on the storage type
+  - for `memory`
+    - **size**: maximum number of items to store in the cache _per resolver_. Default is `1024`.
+    - **invalidation**: enable invalidation, see [documentation](#invalidation). Default is disabled.
+
+    Example  
+
+    ```js
+      storage: {
+        TODO
+      }
+    ```
+
+  - for `redis`
+    - **client**: a redis client instance, mandatory.
+    - **invalidation**: enable invalidation, see [documentation](#invalidation). Default is disabled.
+    - **invalidation.referencesTTL**: references TTL in seconds. Default is `60` seconds.
+
+    Example
+
+    ```js
+      storage: {
+        type: 'redis',
+        client: TODO,
+        invalidation: {
+          referencesTTL: 60
+        }
+      }
+
+See [examples/full-optional.js](examples/full-optional.js) for a complete complex use case.
 
 - **policy**
 
@@ -96,23 +124,6 @@ Example
   policy: {
     Query: {
       add: true
-    }
-  }
-```
-
-- **policy~extendKey**
-
-extend the key to cache responses by different request, for example to enable custom cache per user; see [examples/cache-per-user.js](examples/cache-per-user.js) for a complete use case.
-Example  
-
-```js
-  policy: {
-    Query: {
-      welcome: {
-        extendKey: function (source, args, context, info) {
-          return context.userId ? `user:${context.userId}` : undefined
-        }
-      }
     }
   }
 ```
@@ -133,21 +144,9 @@ Example
   }
 ```
 
-- **policy~cacheSize**
+- **policy~storage**
 
-use a specific cacheSize for the policy, instead of the default one.  
-Example  
-
-```js
-  policy: {
-    cacheSize: 2048,
-    Query: {
-      welcome: {
-        cacheSize: 1024
-      }
-    }
-  }
-```
+TODO
 
 - **policy~skip**
 
@@ -163,6 +162,31 @@ Example
   }
 ```
 
+- **policy~extendKey**
+
+extend the key to cache responses by different request, for example to enable custom cache per user; see [examples/cache-per-user.js](examples/cache-per-user.js) for a complete use case.
+Example  
+
+```js
+  policy: {
+    Query: {
+      welcome: {
+        extendKey: function (source, args, context, info) {
+          return context.userId ? `user:${context.userId}` : undefined
+        }
+      }
+    }
+  }
+```
+
+- **policy~references**
+
+TODO
+
+- **policy~invalidate**
+
+TODO
+
 - **all**
 
 use the cache in all resolvers; default is false. Use either `policy` or `all` but not both.  
@@ -170,24 +194,6 @@ Example
 
 ```js
   all: true
-```
-
-- **storage**
-
-default cache is in memory, but a different storage can be used for a larger cache. See [examples/redis.js](examples/redis.js) for a complete use case.  
-Example  
-
-```js
-  storage: {
-    async get (key) {
-      // fetch by key from storage
-      return storage.get(key)
-    },
-    async set (key, value) {
-      // set the value in the storage
-      return storage.set(key, value)
-    }
-  }
 ```
 
 - **onHit**
@@ -259,6 +265,22 @@ Example
     console.log('Cache report', data)
   }
 ```
+
+## Invalidation
+
+TODO how to use, it works, what references are
+
+### Redis GC
+
+TODO strategy, lazy, strict, options (chunks)
+
+## Breaking Changes
+
+TODO move to ..?
+
+- version `0.11.0` -> `0.12.0`
+  - `options.cacheSize` is dropped in favor of `storage`
+  - `storage.get` and `storage.set` are removed in favor of `storage` options
 
 ## Benchmarks
 

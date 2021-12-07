@@ -4,6 +4,8 @@ const fastify = require('fastify')
 const mercurius = require('mercurius')
 const cache = require('../')
 
+// TODO update
+
 const app = fastify({ logger: true })
 
 const schema = `

@@ -51,6 +51,8 @@ app.register(mercurius, {
   resolvers
 })
 
+// TODO update
+
 app.register(cache, {
   ttl: 10,
   cacheSize: 10,
