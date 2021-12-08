@@ -3,6 +3,7 @@
 // TODO bin for redis.gc + args
 // TODO examples: basic, redis, invalidation, references, gc, different storages/ttl per policy
 
+// const stringify = require('fast-json-stringify')
 const fp = require('fastify-plugin')
 const { Cache } = require('async-cache-dedupe')
 const createStorage = require('async-cache-dedupe/storage')
@@ -138,7 +139,8 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
       }
 
       // We must skip ctx and info as they are not easy to serialize
-      // TODO use a fast stringify
+      // TODO skip self too?
+      // return stringify({ self, arg, fields, extendKey })
       return JSON.stringify({ self, arg, fields, extendKey })
     }
   }, async function ({ self, arg, ctx, info }) {
@@ -167,11 +169,11 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
     if (invalidate) {
       // note: invalidate is async but no await
       // TODO test invalidate cant throw
-      // TODO support also sync invalidate
-      invalidate(self, arg, ctx, info, result)
-        .then(references => {
-          cache.invalidate(name, references)
-        })
+      let references = invalidate(self, arg, ctx, info, result)
+      if (references && typeof references.then === 'function') {
+        references = await references
+      }
+      cache.invalidate(name, references)
     }
 
     return result

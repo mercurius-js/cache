@@ -37,6 +37,7 @@
   },
   "dependencies": {
     "async-cache-dedupe": "https://github.com/simone-sanfratello/async-cache-dedupe.git#feat/storage",
+    "fast-json-stringify": "^2.7.12",
     "fastify-plugin": "^3.0.0"
   },
   "precommit": "test"

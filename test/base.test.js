@@ -785,3 +785,76 @@ test('use references and invalidation', async ({ fail, pass, plan, teardown }) =
     body: { query: '{ get(id: 11) }' }
   })
 })
+
+test('sync invalidation and references', async ({ fail, pass, plan, teardown }) => {
+  plan(1)
+
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      get (id: Int): String
+    }
+    type Mutation {
+      set (id: Int): String
+    }
+  `
+
+  const resolvers = {
+    Query: {
+      async get (_, { id }) {
+        return 'get ' + id
+      }
+    },
+    Mutation: {
+      async set (_, { id }) {
+        return 'set ' + id
+      }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  let miss = 0
+  app.register(cache, {
+    ttl: 100,
+    storage: { type: 'memory', options: { invalidation: true } },
+    onHit (type, name) {
+      fail()
+    },
+    onMiss (type, name) {
+      if (++miss === 2) { pass() }
+    },
+    policy: {
+      Query: {
+        get: {
+          references: () => ['gets']
+        }
+      },
+      Mutation: {
+        set: {
+          invalidate: () => ['gets']
+        }
+      }
+    }
+  })
+
+  await app.inject({
+    method: 'POST',
+    url: '/graphql',
+    body: { query: '{ get(id: 11) }' }
+  })
+
+  await app.inject({
+    method: 'POST',
+    url: '/graphql',
+    body: { query: 'mutation { set(id: 11) }' }
+  })
+
+  await app.inject({
+    method: 'POST',
+    url: '/graphql',
+    body: { query: '{ get(id: 11) }' }
+  })
+})

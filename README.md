@@ -186,6 +186,7 @@ TODO
 - **policy~invalidate**
 
 TODO
+can be sync and async
 
 - **all**
 
