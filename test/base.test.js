@@ -7,6 +7,7 @@ const cache = require('..')
 
 const { promisify } = require('util')
 const immediate = promisify(setImmediate)
+const { request } = require('./helper')
 
 test('cache a resolver', async ({ equal, same, pass, plan, teardown }) => {
   plan(11)
@@ -857,4 +858,131 @@ test('sync invalidation and references', async ({ fail, pass, plan, teardown }) 
     url: '/graphql',
     body: { query: '{ get(id: 11) }' }
   })
+})
+
+test('should get the result even if cache functions throw an error / skip', async ({ same, teardown }) => {
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+  type Query {
+    add(x: Int, y: Int): Int
+  }
+  `
+
+  const resolvers = {
+    Query: {
+      async add (_, { x, y }) { return x + y }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  app.register(cache, {
+    ttl: 10,
+    all: true,
+    skip: () => { throw new Error('kaboom') }
+  })
+
+  same(await request({ app, query: '{ add(x: 1, y: 1) }' }), { data: { add: 2 } })
+})
+
+test('should get the result even if cache functions throw an error / onSkip', async ({ same, teardown }) => {
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+  type Query {
+    add(x: Int, y: Int): Int
+  }
+  `
+
+  const resolvers = {
+    Query: {
+      async add (_, { x, y }) { return x + y }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  app.register(cache, {
+    ttl: 10,
+    all: true,
+    onSkip: () => { throw new Error('kaboom') }
+  })
+
+  same(await request({ app, query: '{ add(x: 1, y: 1) }' }), { data: { add: 2 } })
+})
+
+test('should get the result even if cache functions throw an error / policy.skip', async ({ same, teardown }) => {
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+  type Query {
+    add(x: Int, y: Int): Int
+  }
+  `
+
+  const resolvers = {
+    Query: {
+      async add (_, { x, y }) { return x + y }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  app.register(cache, {
+    ttl: 10,
+    policy: {
+      Query: {
+        add: { skip: () => { throw new Error('kaboom') } }
+      }
+    }
+  })
+
+  same(await request({ app, query: '{ add(x: 1, y: 1) }' }), { data: { add: 2 } })
+})
+
+test('should get the result even if cache functions throw an error / sync policy.invalidate', async ({ teardown }) => {
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      get (id: Int): String
+    }
+    type Mutation {
+      set (id: Int): String
+    }
+  `
+
+  const resolvers = {
+    Query: {
+      async get (_, { id }) {
+        return 'get ' + id
+      }
+    },
+    Mutation: {
+      async set (_, { id }) {
+        return 'set ' + id
+      }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+  app.register(cache, {
+    ttl: 100,
+    storage: { type: 'memory', options: { invalidation: true } },
+    policy: {
+      Mutation: {
+        set: {
+          // invalidate: () => { throw new Error('kaboom') }
+        }
+      },
+      Query: { get: true }
+    }
+  })
+
+  await request({ app, query: 'mutation { set(id: 11) }' })
 })

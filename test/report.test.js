@@ -69,7 +69,7 @@ test('Report with policy specified', async ({ strictSame, plan, fail, teardown }
   await request({ app, query })
   await request({ app, query })
 
-  await clock.tickAsync(1000)
+  clock.tick(1000)
   await once(stream, 'data')
 
   data = await once(stream, 'data')
@@ -137,14 +137,14 @@ test('Report with all specified', async ({ strictSame, plan, fail, teardown }) =
   await request({ app, query })
   await request({ app, query })
 
-  await clock.tickAsync(1000)
+  clock.tick(1000)
   await once(stream, 'data')
 
   data = await once(stream, 'data')
 
   strictSame(data.data, { 'Query.add': { dedupes: 0, hits: 1, misses: 1, skips: 0 } })
 
-  await clock.tickAsync(3000)
+  clock.tick(3000)
   data = await once(stream, 'data')
 
   strictSame(data.data, { 'Query.add': { dedupes: 0, hits: 0, misses: 0, skips: 0 } })
@@ -207,14 +207,14 @@ test('Log skips correctly', async ({ strictSame, plan, fail, teardown }) => {
   await request({ app, query })
   await request({ app, query })
 
-  await clock.tickAsync(1000)
+  clock.tick(1000)
   await once(stream, 'data')
 
   data = await once(stream, 'data')
 
   strictSame(data.data, { 'Query.add': { dedupes: 0, hits: 0, misses: 0, skips: 2 } })
 
-  await clock.tickAsync(3000)
+  clock.tick(3000)
   data = await once(stream, 'data')
 
   strictSame(data.data, { 'Query.add': { dedupes: 0, hits: 0, misses: 0, skips: 0 } })
@@ -275,7 +275,7 @@ test('Report using custom logReport function', async ({ type, plan, endAll, fail
   const query = '{ add(x: 2, y: 2) }'
 
   await request({ app, query })
-  await clock.tickAsync(1000)
+  clock.tick(1000)
   await clock.nextAsync()
 
   await once(stream, 'data')

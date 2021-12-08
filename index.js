@@ -3,7 +3,6 @@
 // TODO bin for redis.gc + args
 // TODO examples: basic, redis, invalidation, references, gc, different storages/ttl per policy
 
-// const stringify = require('fast-json-stringify')
 const fp = require('fastify-plugin')
 const { Cache } = require('async-cache-dedupe')
 const createStorage = require('async-cache-dedupe/storage')
@@ -34,7 +33,7 @@ module.exports = fp(async function (app, opts) {
   })
 
   app.addHook('onClose', () => {
-    report.close()
+    report && report.close()
   })
 
   // Add hook to regenerate the resolvers when the schema is refreshed
@@ -139,9 +138,9 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
       }
 
       // We must skip ctx and info as they are not easy to serialize
+      // TODO use a fast JSON stringify
       // TODO skip self too?
-      // return stringify({ self, arg, fields, extendKey })
-      return JSON.stringify({ self, arg, fields, extendKey })
+      return { self, arg, fields, extendKey }
     }
   }, async function ({ self, arg, ctx, info }) {
     return originalFieldResolver(self, arg, ctx, info)
@@ -149,33 +148,41 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
 
   return async function (self, arg, ctx, info) {
     let result
-
-    // dont use cache on mutation
-    // TODO dont cache also subscriptions
-    if (info.operation && info.operation.operation === 'mutation') {
-      result = await originalFieldResolver(self, arg, ctx, info)
-    } else if (
-      (skip && (await skip(self, arg, ctx, info))) ||
-      (policy && policy.skip && (await policy.skip(self, arg, ctx, info)))
-    ) {
-      // dont use cache on skip by policy or by general skip
-      report[name].onSkip()
-      result = await originalFieldResolver(self, arg, ctx, info)
-    } else {
-      // use cache to get the result
-      result = await cache[name]({ self, arg, ctx, info })
-    }
-
-    if (invalidate) {
-      // note: invalidate is async but no await
-      // TODO test invalidate cant throw
-      let references = invalidate(self, arg, ctx, info, result)
-      if (references && typeof references.then === 'function') {
-        references = await references
+    try {
+      // dont use cache on mutation
+      // TODO dont cache also subscriptions
+      if (info.operation && info.operation.operation === 'mutation') {
+        result = await originalFieldResolver(self, arg, ctx, info)
+      } else if (
+        (skip && (await skip(self, arg, ctx, info))) ||
+        (policy && policy.skip && (await policy.skip(self, arg, ctx, info)))
+      ) {
+        // dont use cache on skip by policy or by general skip
+        report[name].onSkip()
+        result = await originalFieldResolver(self, arg, ctx, info)
+      } else {
+        // use cache to get the result
+        result = await cache[name]({ self, arg, ctx, info })
       }
-      cache.invalidate(name, references)
+
+      if (invalidate) {
+        // note: invalidate is async but no await
+        invalidation(invalidate, cache, name, self, arg, ctx, info, result)
+      }
+    } catch (err) {
+      // TODO implement onError
+      return originalFieldResolver(self, arg, ctx, info)
     }
 
     return result
+  }
+}
+
+async function invalidation (invalidate, cache, name, self, arg, ctx, info, result) {
+  try {
+    const references = await invalidate(self, arg, ctx, info, result)
+    await cache.invalidate(name, references)
+  } catch (err) {
+    // TODO implement onError
   }
 }
