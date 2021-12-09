@@ -123,8 +123,8 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
         if (!node.selectionSet) {
           continue
         }
-        for (const selection of node.selectionSet.selections) {
-          fields.push(selection.name.value)
+        for (let j = 0; j < node.selectionSet.selections.length; j++) {
+          fields.push(node.selectionSet.selections[j].name.value)
         }
       }
       fields.sort()
@@ -139,7 +139,7 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
 
       // We must skip ctx and info as they are not easy to serialize
       // TODO use a fast JSON stringify
-      // TODO skip self too?
+      // TODO can we remove self from the key?
       return { self, arg, fields, extendKey }
     }
   }, async function ({ self, arg, ctx, info }) {
