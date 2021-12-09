@@ -325,6 +325,7 @@ test('Report dedupes', async ({ strictSame, plan, fail, teardown, equal }) => {
     },
     logInterval: 1,
     logReport: (data) => {
+      console.log(data)
       strictSame(data, { 'Query.add': { dedupes: 2, hits: 0, misses: 1, skips: 0 } })
     }
   })

@@ -5,7 +5,7 @@ Federation is fully supported.
 
 Based on preliminary testing, it is possible to achieve a significant
 throughput improvement at the expense of the freshness of the data.
-Setting the ttl accordingly is of critical importance.
+Setting the ttl accordingly and/or a good invalidation strategy is of critical importance.
 
 Under the covers it uses [`async-cache-dedupe`](https://github.com/mcollina/async-cache-dedupe)
 which will also deduplicate the calls.
@@ -78,16 +78,26 @@ Example
   ttl: 10
 ```
 
+- **all**
+
+use the cache in all resolvers; default is false. Use either `policy` or `all` but not both.  
+Example  
+
+```js
+  all: true
+```
+
 - **storage**
 
-default cache is in memory, but a different storage can be used for a larger cache.  
+default cache is in `memory`, but a `redis` storage can be used for a larger and shared cache.  
 Storage options are:
 
 - **type**: `memory` (default) or `redis`
-- **options**: depends on the storage type
+- **options**: by storage type
   - for `memory`
     - **size**: maximum number of items to store in the cache _per resolver_. Default is `1024`.
     - **invalidation**: enable invalidation, see [documentation](#invalidation). Default is disabled.
+    - **log**: logger instance `pino` compatible, default is the `app.log` instance.
 
     Example  
 
@@ -98,16 +108,17 @@ Storage options are:
     ```
 
   - for `redis`
-    - **client**: a redis client instance, mandatory.
+    - **client**: a redis client instance, mandatory. Should be an `ioredis` client or compatible.
     - **invalidation**: enable invalidation, see [documentation](#invalidation). Default is disabled.
-    - **invalidation.referencesTTL**: references TTL in seconds. Default is `60` seconds.
+    - **invalidation.referencesTTL**: references TTL in seconds. Default is the max `ttl` between the main one and policies.
+    - **log**: logger instance `pino` compatible, default is the `app.log` instance.
 
     Example
 
     ```js
       storage: {
         type: 'redis',
-        client: TODO,
+        client: new Redis(),
         invalidation: {
           referencesTTL: 60
         }
@@ -118,6 +129,7 @@ See [examples/full-optional.js](examples/full-optional.js) for a complete comple
 - **policy**
 
 specify queries to cache; default is empty.  
+Set it to `true` to cache using main `ttl`.
 Example  
 
 ```js
@@ -130,7 +142,7 @@ Example
 
 - **policy~ttl**
 
-use a specific ttl for the policy, instead of the default one.  
+use a specific `ttl` for the policy, instead of the main one.  
 Example  
 
 ```js
@@ -138,8 +150,9 @@ Example
   policy: {
     Query: {
       welcome: {
-        ttl: 5
-      }
+        ttl: 5 // Query "welcome" will be cached for 5 seconds
+      },
+      bye: true // Query "bye" will be cached for 10 seconds
     }
   }
 ```
@@ -150,7 +163,7 @@ TODO
 
 - **policy~skip**
 
-skip cache use for a specific condition.  
+skip cache use for a specific condition, `onSkip` will be triggered.  
 Example  
 
 ```js
@@ -188,13 +201,30 @@ TODO
 TODO
 can be sync and async
 
-- **all**
+- **skip**
 
-use the cache in all resolvers; default is false. Use either `policy` or `all` but not both.  
+skip cache use for a specific condition, `onSkip` will be triggered.  
 Example  
 
 ```js
-  all: true
+  skip (self, arg, ctx, info) {
+    if (ctx.reply.request.headers.authorization) {
+      return true
+    }
+    return false
+  }
+```
+
+- **onDedupe**
+
+called when a request is deduped.
+When multiple requests arrive at the same time, dedupe system call the resolver only once and serve all the request with the result of the first request - and after the result is cached.  
+Example  
+
+```js
+  onDedupe (type, fieldName) {
+    console.log(`dedupe ${type} ${fieldName}`) 
+  }
 ```
 
 - **onHit**
@@ -230,23 +260,9 @@ Example
   }
 ```
 
-- **skip**
-
-skip cache use for a specific condition.  
-Example  
-
-```js
-  skip (self, arg, ctx, info) {
-    if (ctx.reply.request.headers.authorization) {
-      return true
-    }
-    return false
-  }
-```
-
 - **logInterval**
 
-This option enables cache report with hit/miss count for all queries specified in the policy.
+This option enables cache report with hit/miss/dedupes/skips count for all queries specified in the policy; default is disabled.
 The value of the interval is in *seconds*.  
 
 Example  
@@ -262,8 +278,24 @@ custom function for logging cache hits/misses. called every `logInterval` second
 Example  
 
 ```js
-  logReport (data) {
-    console.log('Cache report', data)
+  logReport (report) {
+    console.log('Periodic cache report', report)
+  }
+
+  // report format
+  {
+    "Query.add": {
+      "dedupes": 0,
+      "hits": 8,
+      "misses": 1,
+      "skips": 0
+    },
+    "Query.sub": {
+      "dedupes": 0,
+      "hits": 2,
+      "misses": 6,
+      "skips": 0
+    },
   }
 ```
 
