@@ -130,7 +130,7 @@ Storage options are:
       }
     ```
 
-See [examples/full-optional.js](examples/full-optional.js) for a complete complex use case.
+See [examples/complete.js](examples/complete.js) for a complete complex use case.
 
 - **policy**
 
@@ -167,7 +167,7 @@ Example
 
 use a specific storage for the policy, instead of the main one.  
 Can be useful to have, for example, an in memory storage for small data set along with the redis storage.  
-See [examples/full-optional.js](examples/full-optional.js) for a complete complex use case.  
+See [examples/complete.js](examples/complete.js) for a complete complex use case.  
 Example
 
 ```js
@@ -377,7 +377,7 @@ However, the operations required to do that could be expensive and not worthing 
 
 Explicit invalidation is `disabled` by default, you have to enable in `storage` settings.
 
-See [examples/full-optional.js](examples/full-optional.js) for a complete example.
+See [examples/complete.js](examples/complete.js) for a complete example.
 
 ### Redis
 
