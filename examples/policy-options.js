@@ -51,17 +51,15 @@ app.register(mercurius, {
   resolvers
 })
 
-// TODO update
-
 app.register(cache, {
   ttl: 10,
-  cacheSize: 10,
+  storage: { type: 'memory', options: { size: 10 } },
   policy: {
     Query: {
-      add: { ttl: 1, cacheSize: 1 },
-      sub: { ttl: 2, cacheSize: 2 },
-      multiply: { ttl: 3, cacheSize: 3 },
-      divide: { ttl: 4, cacheSize: 4 }
+      add: { ttl: 1, storage: { type: 'memory', options: { size: 1 } } },
+      sub: { ttl: 2, storage: { type: 'memory', options: { size: 2 } } },
+      multiply: { ttl: 3, storage: { type: 'memory', options: { size: 3 } } },
+      divide: { ttl: 4, storage: { type: 'memory', options: { size: 4 } } }
     }
   }
 })

@@ -103,7 +103,10 @@ Storage options are:
 
     ```js
       storage: {
-        TODO
+        type: 'memory',
+        options: {
+          size: 2048
+        }
       }
     ```
 
@@ -118,11 +121,14 @@ Storage options are:
     ```js
       storage: {
         type: 'redis',
-        client: new Redis(),
-        invalidation: {
-          referencesTTL: 60
+        options: {
+          client: new Redis(),
+          invalidation: {
+            referencesTTL: 60
+          }
         }
       }
+    ```
 
 See [examples/full-optional.js](examples/full-optional.js) for a complete complex use case.
 
@@ -159,7 +165,25 @@ Example
 
 - **policy~storage**
 
-TODO
+use a specific storage for the policy, instead of the main one.  
+Can be useful to have, for example, an in memory storage for small data set along with the redis storage.  
+See [examples/full-optional.js](examples/full-optional.js) for a complete complex use case.  
+Example
+
+```js
+  storage: {
+    type: 'redis',
+    options: { client: new Redis() }
+  },
+  policy: {
+    Query: {
+      countries: {
+        ttl: 1440, // Query "countries" will be cached for 1 day
+        storage: { type: 'memory' }
+      }
+    }
+  }
+```
 
 - **policy~skip**
 
@@ -177,7 +201,8 @@ Example
 
 - **policy~extendKey**
 
-extend the key to cache responses by different request, for example to enable custom cache per user; see [examples/cache-per-user.js](examples/cache-per-user.js) for a complete use case.
+extend the key to cache responses by different request, for example to enable custom cache per user.  
+See [examples/cache-per-user.js](examples/cache-per-user.js) for a complete use case.
 Example  
 
 ```js
@@ -194,12 +219,45 @@ Example
 
 - **policy~references**
 
-TODO
+function to set the `references` for the query, see [invalidation](#invalidation) to know how to use references, and [examples/cache-per-user.js](examples/cache-per-user.js) for a complete use case.
+Example  
+
+```js
+  policy: {
+    Query: {
+      user: {
+        references: (self, arg, ctx, info, result) => {
+          if(!result) { return }
+          return [`user:${result.id}`]
+        }
+      },
+      users: {
+        references: (self, arg, ctx, info, result) => {
+          if(!result) { return }
+          const references = result.map(user => (`user:${user.id}`))
+          references.push('users')
+          return references
+        }
+      }
+    }
+  }
+```
 
 - **policy~invalidate**
 
-TODO
-can be sync and async
+function to `invalidate` for the query by references, see [invalidation](#invalidation) to know how to use references, and [examples/cache-per-user.js](examples/cache-per-user.js) for a complete use case.  
+`invalidate` function can be sync or async.
+Example  
+
+```js
+  policy: {
+    Mutation: {
+      addUser: {
+        invalidate: (self, arg, ctx, info, result) => ['users']
+      }
+    }
+  }
+```
 
 - **skip**
 
@@ -301,11 +359,66 @@ Example
 
 ## Invalidation
 
-TODO how to use, it works, what references are
+Along with `time to live` invalidation of the cache entries, we can use invalidation by keys.  
+The concept behind invalidation by keys is that entries have an auxiliary key set that explicitly link requests along with their own result. These axiliary keys are called here `references`.  
+The use case is common. Let's say we have an entry _user_ `{id: 1, name: "Alice"}`, it may change often or rarely, the `ttl` system is not accurate:
 
-### Redis GC
+- it can be updated before `ttl` expiration, this case the old value is showed until expiration by `ttl`.  
+It may also be in different queries, for example `getUser` and `findUsers`, so we need to keep their responses consistent
+- it's not been updated during `ttl` expiration, so in this case we don't need to reload the value, because it's not changed
 
-TODO strategy, lazy, strict, options (chunks)
+To solve this common problem, we can use `references`.  
+We can say that the result of query `getUser(id: 1)` has reference `user~1`, and the result of query `findUsers`, containing `{id: 1, name: "Alice"},{id: 2, name: "Bob"}` has references `[user~1,user~2]`.
+So we can find the results in the cache by their `references`, independently of the request that generated them, and we can invalidate by `references`.
+
+When the mutation `updateUser` involves `user {id: 1}` we can remove all the entries in the cache that have references to `user~1`, so the result of `getUser(id: 1)` and `findUsers`, and they will be reloaded at the next request with the new data - but not the result of `getUser(id: 2)`.
+
+However, the operations required to do that could be expensive and not worthing it, for example is not recommendable to cache frequently updating data by queries of `find` that have pagination/filtering/sorting.
+
+Explicit invalidation is `disabled` by default, you have to enable in `storage` settings.
+
+See [examples/full-optional.js](examples/full-optional.js) for a complete example.
+
+### Redis
+
+Using a `redis` storage is the best choice for a shared cache for a cluster of a service instance.  
+However, using the invalion system need to keep `references` updated, and remove the expired ones: while expired references does not compromise the cache integrity, they slow down the invalidation task.  
+We have the utility `bin/redis-gc`, that should be scheduled to run on the same redis instance and db.  
+
+`redis-gc` get configuration by a `.env` file or env vars
+
+- **REDIS_GC_CONNECTION**: connection string for redis, mandatory
+
+- **REDIS_GC_STRATEGY**: `lazy` (default) or `strict`
+
+TODO lazy ...
+TODO strict ...
+
+- **REDIS_GC_REFERENCES_TTL**: TODO
+
+Examples
+
+```bash
+
+# run loading .env config file
+
+./bin/redis-gc ../.env
+
+# pass options by env vars
+
+REDIS_GC_STRATEGY=lazy REDIS_GC_CONNECTION=localhost:6379 ./bin/redis-gc
+
+```
+
+Schedule it to run .. TODO N lazy, 1 strict
+
+You can also run gc programmatically by
+
+```js
+
+// TODO
+
+```
 
 ## Breaking Changes
 
