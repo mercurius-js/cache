@@ -1,8 +1,5 @@
 'use strict'
 
-// TODO bin for redis.gc + args
-// TODO examples: basic, redis, invalidation, references, gc, different storages/ttl per policy
-
 const fp = require('fastify-plugin')
 const { Cache } = require('async-cache-dedupe')
 const createStorage = require('async-cache-dedupe/storage')

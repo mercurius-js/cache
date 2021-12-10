@@ -61,8 +61,6 @@ app.register(fp(async app => {
   }, { dependencies: ['fastify-redis'] })
 }))
 
-// TODO setInterval gc
-
 app.listen(3000)
 
 // Use the following to test
