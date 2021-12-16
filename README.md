@@ -130,7 +130,9 @@ Storage options are:
       }
     ```
 
-See [examples/complete.js](examples/complete.js) for a complete complex use case.
+TODO move example to mercurius workspace
+
+See [https://github.com/simone-sanfratello/mercurius-cache-example](https://github.com/simone-sanfratello/mercurius-cache-example) for a complete complex use case.
 
 - **policy**
 
@@ -167,7 +169,7 @@ Example
 
 use a specific storage for the policy, instead of the main one.  
 Can be useful to have, for example, an in memory storage for small data set along with the redis storage.  
-See [examples/complete.js](examples/complete.js) for a complete complex use case.  
+See [https://github.com/simone-sanfratello/mercurius-cache-example](https://github.com/simone-sanfratello/mercurius-cache-example) for a complete complex use case.  
 Example
 
 ```js
@@ -377,48 +379,19 @@ However, the operations required to do that could be expensive and not worthing 
 
 Explicit invalidation is `disabled` by default, you have to enable in `storage` settings.
 
-See [examples/complete.js](examples/complete.js) for a complete example.
+See [mercurius-cache-example](https://github.com/simone-sanfratello/mercurius-cache-example) for a complete example.
 
 ### Redis
 
 Using a `redis` storage is the best choice for a shared cache for a cluster of a service instance.  
 However, using the invalion system need to keep `references` updated, and remove the expired ones: while expired references does not compromise the cache integrity, they slow down the invalidation task.  
-We have the utility `bin/redis-gc`, that should be scheduled to run on the same redis instance and db.  
 
-`redis-gc` get configuration by a `.env` file or env vars
+TODO lazy / strict / options
 
-- **REDIS_GC_CONNECTION**: connection string for redis, mandatory
+An effective strategy is to run often `lazy` cleans and a `strict` clean sometimes.  
+The report contains useful information about the gc cycle, use them to adjust params of the gc utility, settings really depends by the size and the mutability of cache data.
 
-- **REDIS_GC_STRATEGY**: `lazy` (default) or `strict`
-
-TODO lazy ...
-TODO strict ...
-
-- **REDIS_GC_REFERENCES_TTL**: TODO
-
-Examples
-
-```bash
-
-# run loading .env config file
-
-./bin/redis-gc ../.env
-
-# pass options by env vars
-
-REDIS_GC_STRATEGY=lazy REDIS_GC_CONNECTION=localhost:6379 ./bin/redis-gc
-
-```
-
-Schedule it to run .. TODO N lazy, 1 strict
-
-You can also run gc programmatically by
-
-```js
-
-// TODO
-
-```
+A way is to run it programmatically, as in [https://github.com/simone-sanfratello/mercurius-cache-example](https://github.com/simone-sanfratello/mercurius-cache-example) or setup cronjobs as described in [examples/redis-gc](examples/redis-gc) - this one is useful when there are many instance of the mercurius server.
 
 ## Breaking Changes
 
