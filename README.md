@@ -204,7 +204,7 @@ Example
 - **policy~extendKey**
 
 extend the key to cache responses by different request, for example to enable custom cache per user.  
-See [examples/cache-per-user.js](examples/cache-per-user.js) for a complete use case.
+See [examples/cache-per-user.js](examples/cache-per-user.js).
 Example  
 
 ```js
@@ -221,20 +221,20 @@ Example
 
 - **policy~references**
 
-function to set the `references` for the query, see [invalidation](#invalidation) to know how to use references, and [examples/cache-per-user.js](examples/cache-per-user.js) for a complete use case.
+function to set the `references` for the query, see [invalidation](#invalidation) to know how to use references, and TODO  for a complete use case.  
 Example  
 
 ```js
   policy: {
     Query: {
       user: {
-        references: (self, arg, ctx, info, result) => {
+        references: ({source, args, context, info}, key, result) => {
           if(!result) { return }
           return [`user:${result.id}`]
         }
       },
       users: {
-        references: (self, arg, ctx, info, result) => {
+        references: ({source, args, context, info}, key, result) => {
           if(!result) { return }
           const references = result.map(user => (`user:${user.id}`))
           references.push('users')
@@ -247,7 +247,7 @@ Example
 
 - **policy~invalidate**
 
-function to `invalidate` for the query by references, see [invalidation](#invalidation) to know how to use references, and [examples/cache-per-user.js](examples/cache-per-user.js) for a complete use case.  
+function to `invalidate` for the query by references, see [invalidation](#invalidation) to know how to use references, and TODO for a complete use case.  
 `invalidate` function can be sync or async.
 Example  
 
@@ -384,9 +384,37 @@ See [mercurius-cache-example](https://github.com/simone-sanfratello/mercurius-ca
 ### Redis
 
 Using a `redis` storage is the best choice for a shared cache for a cluster of a service instance.  
-However, using the invalion system need to keep `references` updated, and remove the expired ones: while expired references does not compromise the cache integrity, they slow down the invalidation task.  
+However, using the invalion system need to keep `references` updated, and remove the expired ones: while expired references does not compromise the cache integrity, they slow down the I/O operations.  
 
-TODO lazy / strict / options
+So, redis storage has the `gc` function, to perform garbage collection.
+
+Example
+
+```js
+const client = new Redis(connection)
+const storage = createStorage('redis', { log, client, invalidation: true })
+
+// run in lazy mode, doing a full db iteration / but not a full clean up
+let cursor = 0
+do {
+  const report = await storage.gc('lazy', { lazy: { chunk: 200, cursor } })
+  cursor = report.cursor
+} while (cursor !== 0)
+
+// run in strict mode
+const report = await storage.gc('strict', { chunk: 250 })
+
+```
+
+In lazy mode, only `options.max` references are scanned every time, picking keys to check randomly; this operation is lighter while does not ensure references full clean up
+
+In strict mode, all references and keys are checked and cleaned; this operation scan the whole db and is slow, while it ensure full references clean up.
+
+`gc` options are:
+
+- **chunk** TODO
+- **lazy~chunk** TODO
+- **lazy~cursor** TODO
 
 An effective strategy is to run often `lazy` cleans and a `strict` clean sometimes.  
 The report contains useful information about the gc cycle, use them to adjust params of the gc utility, settings really depends by the size and the mutability of cache data.

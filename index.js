@@ -21,7 +21,9 @@ module.exports = fp(async function (app, opts) {
     clear () {
       cache.clear()
       report.clear()
-    }
+    },
+
+    storage: createStorage(storage.type, storage.options)
   }
 
   app.addHook('onReady', async () => {
@@ -40,10 +42,7 @@ module.exports = fp(async function (app, opts) {
   })
 
   function buildCache () {
-    cache = new Cache({
-      ttl,
-      storage: createStorage(storage.type, storage.options)
-    })
+    cache = new Cache({ ttl, storage: app.graphql.cache.storage })
     report = createReport({ app, all, policy, logInterval, logReport })
   }
 }, {

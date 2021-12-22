@@ -57,7 +57,7 @@ test('should get default storage.options.invalidate.referencesTTL as max of poli
   const app = { log: 'the-logger' }
   const { storage } = validateOpts(app, options)
 
-  t.equal(storage.options.invalidate.referencesTTL, 5)
+  t.equal(storage.options.invalidate.referencesTTL, 6)
 })
 
 test('should get default storage.options.invalidate.referencesTTL as max of policies and main ttl / invalidation as empty object', async (t) => {
@@ -76,7 +76,7 @@ test('should get default storage.options.invalidate.referencesTTL as max of poli
   const app = { log: 'the-logger' }
   const { storage } = validateOpts(app, options)
 
-  t.equal(storage.options.invalidate.referencesTTL, 5)
+  t.equal(storage.options.invalidate.referencesTTL, 6)
 })
 
 test('should get default storage.options.log as app.log', async (t) => {

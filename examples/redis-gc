@@ -39,7 +39,7 @@ const lazyChunk = process.env.REDIS_GC_LAZY_CHUNK ? Number(process.env.REDIS_GC_
 let cursor = process.env.REDIS_GC_LAZY_CURSOR ? Number(process.env.REDIS_GC_LAZY_CURSOR) : undefined
 if (!cursor && strategy === 'lazy') {
   try {
-    cursor = await fs.readFile(path.join(os.tmpdir(), 'mercurius-cache-gc'), 'utf8'))
+    cursor = await fs.readFile(path.join(os.tmpdir(), 'mercurius-cache-gc'), 'utf8')
   } catch (e) { }
 }
 
@@ -48,7 +48,7 @@ const storage = createStorage('redis', { log, client, invalidation: true })
 const report = await storage.gc(strategy, { chunk, lazy: { chunk: lazyChunk, cursor } })
 
 // need to save cursor to complete the iteration in lazy mode
-if (strategy == 'lazy') {
+if (strategy === 'lazy') {
   await fs.writeFile(path.join(os.tmpdir(), 'mercurius-cache-gc'), report.cursor, 'utf8')
 }
 
