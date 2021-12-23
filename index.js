@@ -1,8 +1,7 @@
 'use strict'
 
 const fp = require('fastify-plugin')
-const { Cache } = require('async-cache-dedupe')
-const createStorage = require('async-cache-dedupe/storage')
+const { createCache } = require('async-cache-dedupe')
 const { validateOpts } = require('./lib/validation')
 const createReport = require('./lib/report')
 
@@ -21,9 +20,7 @@ module.exports = fp(async function (app, opts) {
     clear () {
       cache.clear()
       report.clear()
-    },
-
-    storage: createStorage(storage.type, storage.options)
+    }
   }
 
   app.addHook('onReady', async () => {
@@ -42,7 +39,7 @@ module.exports = fp(async function (app, opts) {
   })
 
   function buildCache () {
-    cache = new Cache({ ttl, storage: app.graphql.cache.storage })
+    cache = createCache({ ttl, storage })
     report = createReport({ app, all, policy, logInterval, logReport })
   }
 }, {
@@ -95,10 +92,6 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
     storage = policy.storage
     references = policy.references
     invalidate = policy.invalidate
-  }
-
-  if (storage) {
-    storage = createStorage(storage.type, storage.options)
   }
 
   cache.define(name, {

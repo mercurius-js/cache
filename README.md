@@ -130,9 +130,7 @@ Storage options are:
       }
     ```
 
-TODO move example to mercurius workspace
-
-See [https://github.com/simone-sanfratello/mercurius-cache-example](https://github.com/simone-sanfratello/mercurius-cache-example) for a complete complex use case.
+See [https://github.com/mercurius-js/mercurius-cache-example](https://github.com/mercurius-js/mercurius-cache-example) for a complete complex use case.
 
 - **policy**
 
@@ -169,7 +167,7 @@ Example
 
 use a specific storage for the policy, instead of the main one.  
 Can be useful to have, for example, an in memory storage for small data set along with the redis storage.  
-See [https://github.com/simone-sanfratello/mercurius-cache-example](https://github.com/simone-sanfratello/mercurius-cache-example) for a complete complex use case.  
+See [https://github.com/mercurius-js/mercurius-cache-example](https://github.com/mercurius-js/mercurius-cache-example) for a complete complex use case.  
 Example
 
 ```js
@@ -221,7 +219,7 @@ Example
 
 - **policy~references**
 
-function to set the `references` for the query, see [invalidation](#invalidation) to know how to use references, and TODO  for a complete use case.  
+function to set the `references` for the query, see [invalidation](#invalidation) to know how to use references, and [https://github.com/mercurius-js/mercurius-cache-example](https://github.com/mercurius-js/mercurius-cache-example) for a complete use case.  
 Example  
 
 ```js
@@ -247,7 +245,7 @@ Example
 
 - **policy~invalidate**
 
-function to `invalidate` for the query by references, see [invalidation](#invalidation) to know how to use references, and TODO for a complete use case.  
+function to `invalidate` for the query by references, see [invalidation](#invalidation) to know how to use references, and [https://github.com/mercurius-js/mercurius-cache-example](https://github.com/mercurius-js/mercurius-cache-example) for a complete use case.  
 `invalidate` function can be sync or async.
 Example  
 
@@ -339,24 +337,34 @@ Example
 
 ```js
   logReport (report) {
-    console.log('Periodic cache report', report)
+    console.log('Periodic cache report')
+    console.table(report)
   }
 
-  // report format
-  {
-    "Query.add": {
-      "dedupes": 0,
-      "hits": 8,
-      "misses": 1,
-      "skips": 0
-    },
-    "Query.sub": {
-      "dedupes": 0,
-      "hits": 2,
-      "misses": 6,
-      "skips": 0
-    },
-  }
+// console table output
+
+┌───────────────┬─────────┬──────┬────────┬───────┐
+│     (index)   │ dedupes │ hits │ misses │ skips │
+├───────────────┼─────────┼──────┼────────┼───────┤
+│   Query.add   │    0    │  8   │   1    │   0   │
+│   Query.sub   │    0    │  2   │   6    │   0   │
+└───────────────┴─────────┴──────┴────────┴───────┘
+
+// report format
+{
+  "Query.add": {
+    "dedupes": 0,
+    "hits": 8,
+    "misses": 1,
+    "skips": 0
+  },
+  "Query.sub": {
+    "dedupes": 0,
+    "hits": 2,
+    "misses": 6,
+    "skips": 0
+  },
+}
 ```
 
 ## Invalidation
@@ -379,7 +387,7 @@ However, the operations required to do that could be expensive and not worthing 
 
 Explicit invalidation is `disabled` by default, you have to enable in `storage` settings.
 
-See [mercurius-cache-example](https://github.com/simone-sanfratello/mercurius-cache-example) for a complete example.
+See [mercurius-cache-example](https://github.com/mercurius-js/mercurius-cache-example) for a complete example.
 
 ### Redis
 
@@ -412,18 +420,35 @@ In strict mode, all references and keys are checked and cleaned; this operation 
 
 `gc` options are:
 
-- **chunk** TODO
-- **lazy~chunk** TODO
-- **lazy~cursor** TODO
+- **chunk** the chunk size of references analyzed per loops, default `64`
+- **lazy~chunk** the chunk size of references analyzed per loops in `lazy` mode, default `64`; if both `chunk` and `lazy.chunk` is set, the maximum one is taken
+- **lazy~cursor** the cursor offset, default zero; cursor should be set at `report.cursor` to continue scanning from the previous operation
+
+`storage.gc` function returns the `report` of the job, like
+
+```json
+"report":{
+  "references":{
+      "scanned":["r:user:8", "r:group:11", "r:group:16"],
+      "removed":["r:user:8", "r:group:16"]
+  },
+  "keys":{
+      "scanned":["users~1"],
+      "removed":["users~1"]
+  },
+  "loops":4,
+  "cursor":0,
+  "error":null
+}
+```
 
 An effective strategy is to run often `lazy` cleans and a `strict` clean sometimes.  
-The report contains useful information about the gc cycle, use them to adjust params of the gc utility, settings really depends by the size and the mutability of cache data.
+The report contains useful information about the gc cycle, use them to adjust params of the gc utility, settings really depends by the size and the mutability of cached data.
 
-A way is to run it programmatically, as in [https://github.com/simone-sanfratello/mercurius-cache-example](https://github.com/simone-sanfratello/mercurius-cache-example) or setup cronjobs as described in [examples/redis-gc](examples/redis-gc) - this one is useful when there are many instance of the mercurius server.
+A way is to run it programmatically, as in [https://github.com/mercurius-js/mercurius-cache-example](https://github.com/mercurius-js/mercurius-cache-example) or setup cronjobs as described in [examples/redis-gc](examples/redis-gc) - this one is useful when there are many instance of the mercurius server.  
+See [async-cache-dedupe#redis-garbage-collector](https://github.com/mcollina/async-cache-dedupe#redis-garbage-collector) for details.
 
 ## Breaking Changes
-
-TODO move to ..?
 
 - version `0.11.0` -> `0.12.0`
   - `options.cacheSize` is dropped in favor of `storage`

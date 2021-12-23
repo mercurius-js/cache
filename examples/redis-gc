@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
-////////////////////////////////////////////////////////////////////////////////
+/// /////////////////////////////////////////////////////////////////////////////
 //
 // run this scrips as
 //
-// REDIS_GC_STRATEGY=lazy \
+// REDIS_GC_MODE=lazy \
 //   REDIS_GC_CONNECTION=localhost:6379 \
 //   REDIS_GC_CHUNK=1000 \
 //   ./redis-gc
@@ -13,10 +13,10 @@
 //
 // scheduled as: every 3 minutes lazy, every 15 minutes strict
 //
-// */3 * * * * export REDIS_GC_STRATEGY=lazy REDIS_GC_LAZY_CHUNK=100; /redis-gc
-// */15 * * * * export REDIS_GC_STRATEGY=strict REDIS_GC_CHUNK=100; /redis-gc
-// 
-////////////////////////////////////////////////////////////////////////////////
+// */3 * * * * export REDIS_GC_MODE=lazy REDIS_GC_LAZY_CHUNK=100; /redis-gc
+// */15 * * * * export REDIS_GC_MODE=strict REDIS_GC_CHUNK=100; /redis-gc
+//
+/// /////////////////////////////////////////////////////////////////////////////
 
 // TODO test
 
@@ -27,29 +27,40 @@ if (process.argv[2]) {
 const fs = require('fs').promises
 const path = require('path')
 const os = require('os')
+const Redis = require('ioredis')
+const { createStorage } = require('async-cache-dedupe')
 
 const log = require('pino')()
 
-const strategy = process.env.REDIS_GC_STRATEGY || 'lazy'
+const mode = process.env.REDIS_GC_MODE || 'lazy'
 const connection = process.env.REDIS_GC_CONNECTION || 'redis://localhost:6379'
 const chunk = process.env.REDIS_GC_CHUNK ? Number(process.env.REDIS_GC_CHUNK) : 1000
 const lazyChunk = process.env.REDIS_GC_LAZY_CHUNK ? Number(process.env.REDIS_GC_LAZY_CHUNK) : 1000
 
-// retrieve last cursor
-let cursor = process.env.REDIS_GC_LAZY_CURSOR ? Number(process.env.REDIS_GC_LAZY_CURSOR) : undefined
-if (!cursor && strategy === 'lazy') {
-  try {
-    cursor = await fs.readFile(path.join(os.tmpdir(), 'mercurius-cache-gc'), 'utf8')
-  } catch (e) { }
+async function main () {
+  const start = Date.now()
+  // retrieve last cursor
+  let cursor = process.env.REDIS_GC_LAZY_CURSOR ? Number(process.env.REDIS_GC_LAZY_CURSOR) : undefined
+  if (!cursor && mode === 'lazy') {
+    try {
+      cursor = await fs.readFile(path.join(os.tmpdir(), 'mercurius-cache-gc'), 'utf8')
+      cursor = Number(cursor)
+    } catch (e) { }
+  }
+
+  const client = new Redis(connection)
+  const storage = createStorage('redis', { log, client, invalidation: true })
+  const report = await storage.gc(mode, { chunk, lazy: { chunk: lazyChunk, cursor } })
+
+  // need to save cursor to complete the iteration in lazy mode
+  if (mode === 'lazy') {
+    await fs.writeFile(path.join(os.tmpdir(), 'mercurius-cache-gc'), String(report.cursor ?? 0), 'utf8')
+  }
+
+  const d = Date.now() - start
+  log.info({ msg: `gc done in ${d} ms`, mode, report })
+
+  await client.end()
 }
 
-const client = new Redis(connection)
-const storage = createStorage('redis', { log, client, invalidation: true })
-const report = await storage.gc(strategy, { chunk, lazy: { chunk: lazyChunk, cursor } })
-
-// need to save cursor to complete the iteration in lazy mode
-if (strategy === 'lazy') {
-  await fs.writeFile(path.join(os.tmpdir(), 'mercurius-cache-gc'), report.cursor, 'utf8')
-}
-
-log.info({ msg: 'gc done', report })
+main()
