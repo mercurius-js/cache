@@ -7,7 +7,7 @@ Based on preliminary testing, it is possible to achieve a significant
 throughput improvement at the expense of the freshness of the data.
 Setting the ttl accordingly and/or a good invalidation strategy is of critical importance.
 
-Under the covers it uses [`async-cache-dedupe`](https://github.com/mcollina/async-cache-dedupe)
+Under the covers, it uses [`async-cache-dedupe`](https://github.com/mcollina/async-cache-dedupe)
 which will also deduplicate the calls.
 
 ## Install
@@ -16,7 +16,7 @@ which will also deduplicate the calls.
 npm i fastify mercurius mercurius-cache
 ```
 
-## Quick start
+## Quickstart
 
 ```js
 'use strict'
@@ -165,8 +165,8 @@ Example
 
 - **policy~storage**
 
-use a specific storage for the policy, instead of the main one.  
-Can be useful to have, for example, an in memory storage for small data set along with the redis storage.  
+use specific storage for the policy, instead of the main one.  
+Can be useful to have, for example, in-memory storage for small data set along with the redis storage.  
 See [https://github.com/mercurius-js/mercurius-cache-example](https://github.com/mercurius-js/mercurius-cache-example) for a complete complex use case.  
 Example
 
@@ -201,7 +201,7 @@ Example
 
 - **policy~extendKey**
 
-extend the key to cache responses by different request, for example to enable custom cache per user.  
+extend the key to cache responses by different requests, for example, to enable custom cache per user.  
 See [examples/cache-per-user.js](examples/cache-per-user.js).
 Example  
 
@@ -276,7 +276,7 @@ Example
 - **onDedupe**
 
 called when a request is deduped.
-When multiple requests arrive at the same time, dedupe system call the resolver only once and serve all the request with the result of the first request - and after the result is cached.  
+When multiple requests arrive at the same time, the dedupe system calls the resolver only once and serve all the request with the result of the first request - and after the result is cached.  
 Example  
 
 ```js
@@ -370,12 +370,12 @@ Example
 ## Invalidation
 
 Along with `time to live` invalidation of the cache entries, we can use invalidation by keys.  
-The concept behind invalidation by keys is that entries have an auxiliary key set that explicitly link requests along with their own result. These axiliary keys are called here `references`.  
+The concept behind invalidation by keys is that entries have an auxiliary key set that explicitly links requests along with their result. These auxiliary keys are called here `references`.  
 The use case is common. Let's say we have an entry _user_ `{id: 1, name: "Alice"}`, it may change often or rarely, the `ttl` system is not accurate:
 
-- it can be updated before `ttl` expiration, this case the old value is showed until expiration by `ttl`.  
-It may also be in different queries, for example `getUser` and `findUsers`, so we need to keep their responses consistent
-- it's not been updated during `ttl` expiration, so in this case we don't need to reload the value, because it's not changed
+- it can be updated before `ttl` expiration, in this case the old value is shown until expiration by `ttl`.  
+It may also be in more queries, for example, `getUser` and `findUsers`, so we need to keep their responses consistent
+- it's not been updated during `ttl` expiration, so in this case, we don't need to reload the value, because it's not changed
 
 To solve this common problem, we can use `references`.  
 We can say that the result of query `getUser(id: 1)` has reference `user~1`, and the result of query `findUsers`, containing `{id: 1, name: "Alice"},{id: 2, name: "Bob"}` has references `[user~1,user~2]`.
@@ -383,7 +383,7 @@ So we can find the results in the cache by their `references`, independently of 
 
 When the mutation `updateUser` involves `user {id: 1}` we can remove all the entries in the cache that have references to `user~1`, so the result of `getUser(id: 1)` and `findUsers`, and they will be reloaded at the next request with the new data - but not the result of `getUser(id: 2)`.
 
-However, the operations required to do that could be expensive and not worthing it, for example is not recommendable to cache frequently updating data by queries of `find` that have pagination/filtering/sorting.
+However, the operations required to do that could be expensive and not worthing it, for example, is not recommendable to cache frequently updating data by queries of `find` that have pagination/filtering/sorting.
 
 Explicit invalidation is `disabled` by default, you have to enable in `storage` settings.
 
@@ -392,7 +392,7 @@ See [mercurius-cache-example](https://github.com/mercurius-js/mercurius-cache-ex
 ### Redis
 
 Using a `redis` storage is the best choice for a shared cache for a cluster of a service instance.  
-However, using the invalion system need to keep `references` updated, and remove the expired ones: while expired references does not compromise the cache integrity, they slow down the I/O operations.  
+However, using the invalidation system need to keep `references` updated, and remove the expired ones: while expired references do not compromise the cache integrity, they slow down the I/O operations.  
 
 So, redis storage has the `gc` function, to perform garbage collection.
 
@@ -416,7 +416,7 @@ const report = await storage.gc('strict', { chunk: 250 })
 
 In lazy mode, only `options.max` references are scanned every time, picking keys to check randomly; this operation is lighter while does not ensure references full clean up
 
-In strict mode, all references and keys are checked and cleaned; this operation scan the whole db and is slow, while it ensure full references clean up.
+In strict mode, all references and keys are checked and cleaned; this operation scans the whole db and is slow, while it ensures full references clean up.
 
 `gc` options are:
 
@@ -443,9 +443,9 @@ In strict mode, all references and keys are checked and cleaned; this operation 
 ```
 
 An effective strategy is to run often `lazy` cleans and a `strict` clean sometimes.  
-The report contains useful information about the gc cycle, use them to adjust params of the gc utility, settings really depends by the size and the mutability of cached data.
+The report contains useful information about the gc cycle, use them to adjust params of the gc utility, settings depending on the size, and the mutability of cached data.
 
-A way is to run it programmatically, as in [https://github.com/mercurius-js/mercurius-cache-example](https://github.com/mercurius-js/mercurius-cache-example) or setup cronjobs as described in [examples/redis-gc](examples/redis-gc) - this one is useful when there are many instance of the mercurius server.  
+A way is to run it programmatically, as in [https://github.com/mercurius-js/mercurius-cache-example](https://github.com/mercurius-js/mercurius-cache-example) or set up cronjobs as described in [examples/redis-gc](examples/redis-gc) - this one is useful when there are many instances of the mercurius server.  
 See [async-cache-dedupe#redis-garbage-collector](https://github.com/mcollina/async-cache-dedupe#redis-garbage-collector) for details.
 
 ## Breaking Changes
@@ -457,7 +457,7 @@ See [async-cache-dedupe#redis-garbage-collector](https://github.com/mcollina/asy
 ## Benchmarks
 
 We have experienced up to 10x performance improvements in real-world scenarios.
-This repository also include a benchmark of a gateway and two federated services that shows
+This repository also includes a benchmark of a gateway and two federated services that shows
 that adding a cache with 10ms TTL can improve the performance by 4x:
 
 ```
