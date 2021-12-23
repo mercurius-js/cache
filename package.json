@@ -36,7 +36,7 @@
     "wait-on": "^6.0.0"
   },
   "dependencies": {
-    "async-cache-dedupe": "https://github.com/simone-sanfratello/async-cache-dedupe.git#feat/storage",
+    "async-cache-dedupe": "0.6.0",
     "fastify-plugin": "^3.0.0"
   },
   "precommit": "test"
