@@ -13,7 +13,7 @@ which will also deduplicate the calls.
 ## Install
 
 ```bash
-npm i fastify mercurius mercurius-cache
+npm i fastify mercurius mercurius-cache graphql
 ```
 
 ## Quickstart
