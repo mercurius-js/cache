@@ -27,7 +27,7 @@
     "autocannon": "^7.5.0",
     "concurrently": "^6.3.0",
     "fastify": "^3.21.3",
-    "mercurius": "^8.2.1",
+    "mercurius": "^9.1.0",
     "snazzy": "^9.0.0",
     "split2": "^4.1.0",
     "standard": "^16.0.3",
