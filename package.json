@@ -35,7 +35,7 @@
     "wait-on": "^6.0.0"
   },
   "dependencies": {
-    "async-cache-dedupe": "^0.5.0",
+    "async-cache-dedupe": "^1.0.0",
     "fastify-plugin": "^3.0.0"
   },
   "precommit": "test"
