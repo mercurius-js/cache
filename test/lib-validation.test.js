@@ -17,6 +17,7 @@ test('should get default options', async (t) => {
   t.equal(typeof options.onHit, 'function')
   t.equal(typeof options.onMiss, 'function')
   t.equal(typeof options.onSkip, 'function')
+  t.equal(typeof options.onError, 'function')
 })
 
 test('should get default storage.options', async (t) => {
@@ -125,6 +126,11 @@ const cases = [
     title: 'should get error using onSkip as string',
     options: { onSkip: 'not a function' },
     expect: /onSkip must be a function/
+  },
+  {
+    title: 'should get error using onError as string',
+    options: { onError: 'not a function' },
+    expect: /onError must be a function/
   },
   {
     title: 'should get error using policy as string',

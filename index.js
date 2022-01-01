@@ -6,7 +6,7 @@ const { validateOpts } = require('./lib/validation')
 const createReport = require('./lib/report')
 
 module.exports = fp(async function (app, opts) {
-  const { all, policy, ttl, skip, storage, onDedupe, onHit, onMiss, onSkip, logInterval, logReport } = validateOpts(app, opts)
+  const { all, policy, ttl, skip, storage, onDedupe, onHit, onMiss, onSkip, onError, logInterval, logReport } = validateOpts(app, opts)
 
   let cache = null
   let report = null
@@ -14,7 +14,7 @@ module.exports = fp(async function (app, opts) {
   app.graphql.cache = {
     refresh () {
       buildCache()
-      setupSchema(app.graphql.schema, policy, all, cache, skip, onDedupe, onHit, onMiss, onSkip, report)
+      setupSchema(app.graphql.schema, policy, all, cache, skip, onDedupe, onHit, onMiss, onSkip, onError, report)
     },
 
     clear () {
@@ -35,7 +35,7 @@ module.exports = fp(async function (app, opts) {
   // Add hook to regenerate the resolvers when the schema is refreshed
   app.graphql.addHook('onGatewayReplaceSchema', async (instance, schema) => {
     buildCache()
-    setupSchema(schema, policy, all, cache, skip, onDedupe, onHit, onMiss, onSkip, report)
+    setupSchema(schema, policy, all, cache, skip, onDedupe, onHit, onMiss, onSkip, onError, report)
   })
 
   function buildCache () {
@@ -47,7 +47,7 @@ module.exports = fp(async function (app, opts) {
   dependencies: ['mercurius']
 })
 
-function setupSchema (schema, policy, all, cache, skip, onDedupe, onHit, onMiss, onSkip, report) {
+function setupSchema (schema, policy, all, cache, skip, onDedupe, onHit, onMiss, onSkip, onError, report) {
   const schemaTypeMap = schema.getTypeMap()
   let queryKeys = policy ? Object.keys(policy.Query) : []
 
@@ -67,7 +67,7 @@ function setupSchema (schema, policy, all, cache, skip, onDedupe, onHit, onMiss,
           // Override resolvers for caching purposes
           if (typeof field.resolve === 'function') {
             const originalFieldResolver = field.resolve
-            field.resolve = makeCachedResolver(schemaType.toString(), fieldName, cache, originalFieldResolver, policy, skip, onDedupe, onHit, onMiss, onSkip, report)
+            field.resolve = makeCachedResolver(schemaType.toString(), fieldName, cache, originalFieldResolver, policy, skip, onDedupe, onHit, onMiss, onSkip, onError, report)
           }
         }
       }
@@ -76,13 +76,14 @@ function setupSchema (schema, policy, all, cache, skip, onDedupe, onHit, onMiss,
   if (queryKeys.length) { throw new Error(`Query does not match schema: ${queryKeys}`) }
 }
 
-function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, policy, skip, onDedupe, onHit, onMiss, onSkip, report) {
+function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, policy, skip, onDedupe, onHit, onMiss, onSkip, onError, report) {
   const name = prefix + '.' + fieldName
 
   onDedupe = onDedupe.bind(null, prefix, fieldName)
   onHit = onHit.bind(null, prefix, fieldName)
   onMiss = onMiss.bind(null, prefix, fieldName)
   onSkip = onSkip.bind(null, prefix, fieldName)
+  onError = onError.bind(null, prefix, fieldName)
 
   report.wrap({ name, onDedupe, onHit, onMiss, onSkip })
 
@@ -127,8 +128,6 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
       }
 
       // We must skip ctx and info as they are not easy to serialize
-      // TODO use a fast JSON stringify
-      // TODO can we remove self from the key?
       return { self, arg, fields, extendKey }
     }
   }, async function ({ self, arg, ctx, info }) {
@@ -151,15 +150,18 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
         result = await originalFieldResolver(self, arg, ctx, info)
       } else {
         // use cache to get the result
+        // note the cache function never throws error
         result = await cache[name]({ self, arg, ctx, info })
       }
 
       if (invalidate) {
-        // note: invalidate is async but no await
-        invalidation(invalidate, cache, name, self, arg, ctx, info, result)
+        // invalidate is async but no await, and never throws
+        // since the result is already got, either by cache or original resolver
+        // in case of error, onError is called in the invalidation function to avoid await
+        invalidation(invalidate, cache, name, self, arg, ctx, info, result, onError)
       }
     } catch (err) {
-      // TODO implement onError
+      onError(err)
       return originalFieldResolver(self, arg, ctx, info)
     }
 
@@ -167,11 +169,11 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
   }
 }
 
-async function invalidation (invalidate, cache, name, self, arg, ctx, info, result) {
+async function invalidation (invalidate, cache, name, self, arg, ctx, info, result, onError) {
   try {
     const references = await invalidate(self, arg, ctx, info, result)
     await cache.invalidate(name, references)
   } catch (err) {
-    // TODO implement onError
+    onError(err)
   }
 }

@@ -986,3 +986,119 @@ test('should get the result even if cache functions throw an error / sync policy
 
   await request({ app, query: 'mutation { set(id: 11) }' })
 })
+
+test('should call onError if skip function throws an error', async ({ plan, teardown, equal, same }) => {
+  plan(4)
+
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      get (id: Int): String
+    }
+  `
+
+  const resolvers = {
+    Query: { async get (_, { id }) { return 'get ' + id } }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+  app.register(cache, {
+    ttl: 1,
+    all: true,
+    skip: () => { throw new Error('kaboom') },
+    onError (type, name, error) {
+      equal(type, 'Query')
+      equal(name, 'get')
+      equal(error.message, 'kaboom')
+    }
+  })
+
+  same(await request({ app, query: '{ get(id: 11) }' }), { data: { get: 'get 11' } })
+})
+
+test('should call onError if resolver function throws an error', async ({ plan, equal, teardown }) => {
+  plan(3)
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+  type Query {
+    add(x: Int, y: Int): Int
+  }
+  `
+
+  const resolvers = {
+    Query: {
+      async add (_, { x, y }) { throw new Error('kaboom') }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  app.register(cache, {
+    ttl: 1,
+    all: true,
+    onError: (type, name, error) => {
+      equal(type, 'Query')
+      equal(name, 'add')
+      equal(error.message, 'kaboom')
+    }
+  })
+
+  await request({ app, query: '{ add(x: 1, y: 1) }' })
+})
+
+test('should call onError if invalidation function throws an error', async ({ equal, plan, teardown }) => {
+  plan(3)
+
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      get (id: Int): String
+    }
+    type Mutation {
+      set (id: Int): String
+    }
+  `
+
+  const resolvers = {
+    Query: {
+      async get (_, { id }) {
+        return 'get ' + id
+      }
+    },
+    Mutation: {
+      async set (_, { id }) {
+        return 'set ' + id
+      }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  app.register(cache, {
+    ttl: 1,
+    storage: { type: 'memory', options: { invalidation: true } },
+    onError (type, name, error) {
+      equal(type, 'Mutation')
+      equal(name, 'set')
+      equal(error.message, 'kaboom')
+    },
+    policy: {
+      Query: { get: { references: async () => ['gets'] } },
+      Mutation: {
+        set: {
+          invalidate: async () => { throw new Error('kaboom') }
+        }
+      }
+    }
+  })
+
+  await request({ app, query: '{ get(id: 11) }' })
+  await request({ app, query: 'mutation { set(id: 11) }' })
+  await request({ app, query: '{ get(id: 11) }' })
+})

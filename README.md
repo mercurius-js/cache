@@ -318,6 +318,17 @@ Example
   }
 ```
 
+- **onError**
+
+called when an error occurred on the caching operation.
+Example  
+
+```js
+  onSkip (type, fieldName, error) {
+    console.error(`error on ${type} ${fieldName}`, error)
+  }
+```
+
 - **logInterval**
 
 This option enables cache report with hit/miss/dedupes/skips count for all queries specified in the policy; default is disabled.
