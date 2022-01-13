@@ -1,5 +1,6 @@
 'use strict'
 
+const { promisify } = require('util')
 const { test } = require('tap')
 const fastify = require('fastify')
 const mercurius = require('mercurius')
@@ -8,7 +9,9 @@ const split = require('split2')
 const FakeTimers = require('@sinonjs/fake-timers')
 const { request } = require('./helper')
 
-test('Log cache report with policy specified', async ({ strictSame, plan, fail, teardown }) => {
+const sleep = promisify(setTimeout)
+
+test('Report with policy specified', async ({ strictSame, plan, fail, teardown }) => {
   plan(2)
 
   let app = null
@@ -66,21 +69,21 @@ test('Log cache report with policy specified', async ({ strictSame, plan, fail, 
   await request({ app, query })
   await request({ app, query })
 
-  await clock.tickAsync(1000)
+  clock.tick(1000)
   await once(stream, 'data')
 
   data = await once(stream, 'data')
 
-  strictSame(data.cacheReport, { 'Query.add': { hits: 1, misses: 1, skips: 0 } })
+  strictSame(data.data, { 'Query.add': { dedupes: 0, hits: 1, misses: 1, skips: 0 } })
 
   await clock.tick(3000)
 
   data = await once(stream, 'data')
 
-  strictSame(data.cacheReport, { 'Query.add': { hits: 0, misses: 0, skips: 0 } })
+  strictSame(data.data, { 'Query.add': { dedupes: 0, hits: 0, misses: 0, skips: 0 } })
 })
 
-test('Log cache report with all specified', async ({ strictSame, plan, fail, teardown }) => {
+test('Report with all specified', async ({ strictSame, plan, fail, teardown }) => {
   plan(2)
 
   let app = null
@@ -134,17 +137,17 @@ test('Log cache report with all specified', async ({ strictSame, plan, fail, tea
   await request({ app, query })
   await request({ app, query })
 
-  await clock.tickAsync(1000)
+  clock.tick(1000)
   await once(stream, 'data')
 
   data = await once(stream, 'data')
 
-  strictSame(data.cacheReport, { 'Query.add': { hits: 1, misses: 1, skips: 0 } })
+  strictSame(data.data, { 'Query.add': { dedupes: 0, hits: 1, misses: 1, skips: 0 } })
 
-  await clock.tickAsync(3000)
+  clock.tick(3000)
   data = await once(stream, 'data')
 
-  strictSame(data.cacheReport, { 'Query.add': { hits: 0, misses: 0, skips: 0 } })
+  strictSame(data.data, { 'Query.add': { dedupes: 0, hits: 0, misses: 0, skips: 0 } })
 })
 
 test('Log skips correctly', async ({ strictSame, plan, fail, teardown }) => {
@@ -204,20 +207,20 @@ test('Log skips correctly', async ({ strictSame, plan, fail, teardown }) => {
   await request({ app, query })
   await request({ app, query })
 
-  await clock.tickAsync(1000)
+  clock.tick(1000)
   await once(stream, 'data')
 
   data = await once(stream, 'data')
 
-  strictSame(data.cacheReport, { 'Query.add': { hits: 0, misses: 0, skips: 2 } })
+  strictSame(data.data, { 'Query.add': { dedupes: 0, hits: 0, misses: 0, skips: 2 } })
 
-  await clock.tickAsync(3000)
+  clock.tick(3000)
   data = await once(stream, 'data')
 
-  strictSame(data.cacheReport, { 'Query.add': { hits: 0, misses: 0, skips: 0 } })
+  strictSame(data.data, { 'Query.add': { dedupes: 0, hits: 0, misses: 0, skips: 0 } })
 })
 
-test('Log cache report using custom logReport function', async ({ type, plan, endAll, fail, teardown }) => {
+test('Report using custom logReport function', async ({ type, plan, endAll, fail, teardown }) => {
   plan(1)
 
   let app = null
@@ -272,11 +275,67 @@ test('Log cache report using custom logReport function', async ({ type, plan, en
   const query = '{ add(x: 2, y: 2) }'
 
   await request({ app, query })
-  await clock.tickAsync(1000)
+  clock.tick(1000)
   await clock.nextAsync()
 
   await once(stream, 'data')
   await once(stream, 'data')
+})
+
+test('Report dedupes', async ({ strictSame, plan, fail, teardown, equal }) => {
+  plan(4)
+
+  let app = null
+  const stream = split(JSON.parse)
+  try {
+    app = fastify({ logger: { stream: stream } })
+  } catch (e) {
+    fail()
+  }
+
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      add(x: Int, y: Int): Int
+    }
+  `
+
+  const resolvers = {
+    Query: {
+      async add (_, { x, y }) {
+        await sleep(500)
+        return x + y
+      }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  app.register(cache, {
+    ttl: 1,
+    policy: {
+      Query: {
+        add: true
+      }
+    },
+    onDedupe: (type, name) => {
+      equal(type, 'Query')
+      equal(name, 'add')
+    },
+    logInterval: 1,
+    logReport: (data) => {
+      strictSame(data, { 'Query.add': { dedupes: 2, hits: 0, misses: 1, skips: 0 } })
+    }
+  })
+
+  const query = '{ add(x: 2, y: 2) }'
+
+  await Promise.all([
+    request({ app, query }),
+    request({ app, query }),
+    request({ app, query })
+  ])
 })
 
 function once (emitter, name) {

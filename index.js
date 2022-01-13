@@ -1,109 +1,53 @@
 'use strict'
 
 const fp = require('fastify-plugin')
-const { Cache } = require('async-cache-dedupe')
+const { createCache } = require('async-cache-dedupe')
 const { validateOpts } = require('./lib/validation')
+const createReport = require('./lib/report')
 
 module.exports = fp(async function (app, opts) {
-  validateOpts(opts)
-
-  let { all, policy, ttl, cacheSize, skip, storage, onHit, onMiss, onSkip, logInterval, logReport } = opts
-
-  if (!logReport) {
-    logReport = defaultLogReport
-  }
-
-  onHit = onHit || noop
-  onMiss = onMiss || noop
-  onSkip = onSkip || noop
+  const { all, policy, ttl, skip, storage, onDedupe, onHit, onMiss, onSkip, onError, logInterval, logReport } = validateOpts(app, opts)
 
   let cache = null
-  let logTimer = null
-  let cacheReport = null
-
-  const cacheReportingEnabled = logInterval && ((policy && policy.Query) || all)
-  if (cacheReportingEnabled) {
-    initCacheReport()
-  }
+  let report = null
 
   app.graphql.cache = {
     refresh () {
       buildCache()
-      setupSchema(app.graphql.schema, policy, all, cache, skip, storage, onHit, onMiss, onSkip, cacheReport)
+      setupSchema(app.graphql.schema, policy, all, cache, skip, onDedupe, onHit, onMiss, onSkip, onError, report)
     },
 
     clear () {
       cache.clear()
-      logReport(cacheReport)
-      clearCacheReport(cacheReport)
+      report.clear()
     }
   }
 
   app.addHook('onReady', async () => {
     app.graphql.cache.refresh()
-    if (cacheReportingEnabled) {
-      logTimer = setInterval(logAndClearCacheReport, logInterval * 1000, cacheReport).unref()
-    }
+    report.refresh()
   })
 
   app.addHook('onClose', () => {
-    if (logTimer) {
-      clearInterval(logTimer)
-    }
+    report && report.close()
   })
 
   // Add hook to regenerate the resolvers when the schema is refreshed
   app.graphql.addHook('onGatewayReplaceSchema', async (instance, schema) => {
     buildCache()
-    setupSchema(schema, policy, all, cache, skip, storage, onHit, onMiss, onSkip, cacheReport)
+    setupSchema(schema, policy, all, cache, skip, onDedupe, onHit, onMiss, onSkip, onError, report)
   })
 
   function buildCache () {
-    cache = new Cache({
-      ttl,
-      cacheSize
-    })
-  }
-
-  function initCacheReport () {
-    cacheReport = {}
-
-    const schema = app.graphql.schema
-    const fields = all ? Object.keys(schema.getQueryType().getFields()) : Object.keys(policy.Query)
-
-    for (const field of fields) {
-      const name = 'Query.' + field
-      cacheReport[name] = {}
-      cacheReport[name].hits = 0
-      cacheReport[name].misses = 0
-      cacheReport[name].skips = 0
-    }
-  }
-
-  function clearCacheReport (cacheReport) {
-    if (!cacheReport) return
-
-    for (const item of Object.keys(cacheReport)) {
-      cacheReport[item].hits = 0
-      cacheReport[item].misses = 0
-      cacheReport[item].skips = 0
-    }
-  }
-
-  function defaultLogReport (cacheReport) {
-    app.log.info({ cacheReport }, 'mercurius-cache report')
-  }
-
-  function logAndClearCacheReport (cacheReport) {
-    logReport(cacheReport)
-    clearCacheReport(cacheReport)
+    cache = createCache({ ttl, storage })
+    report = createReport({ app, all, policy, logInterval, logReport })
   }
 }, {
   fastify: '^3.x',
   dependencies: ['mercurius']
 })
 
-function setupSchema (schema, policy, all, cache, skip, storage, onHit, onMiss, onSkip, cacheReport) {
+function setupSchema (schema, policy, all, cache, skip, onDedupe, onHit, onMiss, onSkip, onError, report) {
   const schemaTypeMap = schema.getTypeMap()
   let queryKeys = policy ? Object.keys(policy.Query) : []
 
@@ -123,7 +67,7 @@ function setupSchema (schema, policy, all, cache, skip, storage, onHit, onMiss, 
           // Override resolvers for caching purposes
           if (typeof field.resolve === 'function') {
             const originalFieldResolver = field.resolve
-            field.resolve = makeCachedResolver(schemaType.toString(), fieldName, cache, originalFieldResolver, policy, skip, storage, onHit, onMiss, onSkip, cacheReport)
+            field.resolve = makeCachedResolver(schemaType.toString(), fieldName, cache, originalFieldResolver, policy, skip, onDedupe, onHit, onMiss, onSkip, onError, report)
           }
         }
       }
@@ -132,47 +76,45 @@ function setupSchema (schema, policy, all, cache, skip, storage, onHit, onMiss, 
   if (queryKeys.length) { throw new Error(`Query does not match schema: ${queryKeys}`) }
 }
 
-function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, policy, skip, storage, onHit, onMiss, onSkip, cacheReport) {
+function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, policy, skip, onDedupe, onHit, onMiss, onSkip, onError, report) {
   const name = prefix + '.' + fieldName
+
+  onDedupe = onDedupe.bind(null, prefix, fieldName)
   onHit = onHit.bind(null, prefix, fieldName)
   onMiss = onMiss.bind(null, prefix, fieldName)
   onSkip = onSkip.bind(null, prefix, fieldName)
+  onError = onError.bind(null, prefix, fieldName)
 
-  let onCacheHit = null
-  let onCacheMiss = null
-  let onCacheSkip = null
+  report.wrap({ name, onDedupe, onHit, onMiss, onSkip })
 
-  if (cacheReport) {
-    onCacheHit = () => {
-      cacheReport[name].hits++
-      onHit()
-    }
-
-    onCacheMiss = () => {
-      cacheReport[name].misses++
-      onMiss()
-    }
-
-    onCacheSkip = () => {
-      cacheReport[name].skips++
-      onSkip()
-    }
+  let ttl, storage, references, invalidate
+  if (policy) {
+    ttl = policy.ttl
+    storage = policy.storage
+    references = policy.references
+    invalidate = policy.invalidate
   }
 
   cache.define(name, {
-    onHit: onCacheHit || onHit,
-    ttl: policy && policy.ttl,
-    cacheSize: policy && policy.cacheSize,
+    onDedupe: report[name].onDedupe,
+    onHit: report[name].onHit,
+    onMiss: report[name].onMiss,
+    ttl,
+    storage,
+    references,
+
+    // TODO use a custom policy serializer if any
     serialize ({ self, arg, info, ctx }) {
       // We need to cache only for the selected fields to support Federation
       // TODO detect if we really need to do this in most cases
       const fields = []
-      for (const node of info.fieldNodes) {
+      for (let i = 0; i < info.fieldNodes.length; i++) {
+        const node = info.fieldNodes[i]
         if (!node.selectionSet) {
           continue
         }
-        for (const selection of node.selectionSet.selections) {
-          fields.push(selection.name.value)
+        for (let j = 0; j < node.selectionSet.selections.length; j++) {
+          fields.push(node.selectionSet.selections[j].name.value)
         }
       }
       fields.sort()
@@ -188,37 +130,50 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
       // We must skip ctx and info as they are not easy to serialize
       return { self, arg, fields, extendKey }
     }
-  }, async function ({ self, arg, ctx, info, extendKey }, key) {
-    if (storage) {
-      const val = await storage.get(name + '~' + key)
-      if (val) {
-        onHit()
-        return val
-      }
-    }
-
-    onCacheMiss ? onCacheMiss() : onMiss()
-    const res = await originalFieldResolver(self, arg, ctx, info)
-    if (storage) {
-      await storage.set(name + '~' + key, res)
-    }
-    return res
+  }, async function ({ self, arg, ctx, info }) {
+    return originalFieldResolver(self, arg, ctx, info)
   })
+
   return async function (self, arg, ctx, info) {
-    const isMutation =
-      info.operation && info.operation.operation === 'mutation'
-    if (
-      (skip && (await skip(self, arg, ctx, info))) ||
-      isMutation ||
-      (policy && policy.skip && (await policy.skip(self, arg, ctx, info)))
-    ) {
-      if (!isMutation) {
-        onCacheSkip ? onCacheSkip() : onSkip()
+    let result
+    try {
+      // dont use cache on mutation
+      // TODO dont cache also subscriptions
+      if (info.operation && info.operation.operation === 'mutation') {
+        result = await originalFieldResolver(self, arg, ctx, info)
+      } else if (
+        (skip && (await skip(self, arg, ctx, info))) ||
+        (policy && policy.skip && (await policy.skip(self, arg, ctx, info)))
+      ) {
+        // dont use cache on skip by policy or by general skip
+        report[name].onSkip()
+        result = await originalFieldResolver(self, arg, ctx, info)
+      } else {
+        // use cache to get the result
+        // note the cache function never throws error
+        result = await cache[name]({ self, arg, ctx, info })
       }
+
+      if (invalidate) {
+        // invalidate is async but no await, and never throws
+        // since the result is already got, either by cache or original resolver
+        // in case of error, onError is called in the invalidation function to avoid await
+        invalidation(invalidate, cache, name, self, arg, ctx, info, result, onError)
+      }
+    } catch (err) {
+      onError(err)
       return originalFieldResolver(self, arg, ctx, info)
     }
-    return cache[name]({ self, arg, ctx, info })
+
+    return result
   }
 }
 
-function noop () { }
+async function invalidation (invalidate, cache, name, self, arg, ctx, info, result, onError) {
+  try {
+    const references = await invalidate(self, arg, ctx, info, result)
+    await cache.invalidate(name, references)
+  } catch (err) {
+    onError(err)
+  }
+}

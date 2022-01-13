@@ -6,8 +6,8 @@ const mercurius = require('mercurius')
 const cache = require('..')
 
 const { promisify } = require('util')
-
 const immediate = promisify(setImmediate)
+const { request } = require('./helper')
 
 test('cache a resolver', async ({ equal, same, pass, plan, teardown }) => {
   plan(11)
@@ -98,8 +98,8 @@ test('cache a resolver', async ({ equal, same, pass, plan, teardown }) => {
   equal(misses, 1)
 })
 
-test('No TTL', async ({ equal, same, pass, plan, teardown }) => {
-  plan(13)
+test('No TTL, do not use cache', async ({ equal, same, pass, plan, teardown }) => {
+  plan(10)
 
   const app = fastify()
   teardown(app.close.bind(app))
@@ -126,15 +126,9 @@ test('No TTL', async ({ equal, same, pass, plan, teardown }) => {
     resolvers
   })
 
-  let hits = 0
   let misses = 0
 
   app.register(cache, {
-    onHit (type, name) {
-      equal(type, 'Query', 'on hit')
-      equal(name, 'add')
-      hits++
-    },
     onMiss (type, name) {
       equal(type, 'Query', 'on miss')
       equal(name, 'add')
@@ -152,7 +146,6 @@ test('No TTL', async ({ equal, same, pass, plan, teardown }) => {
     query()
   ])
 
-  equal(hits, 1)
   equal(misses, 2)
 
   async function query () {
@@ -668,52 +661,6 @@ test('skip the cache if operation is Mutation', async ({ equal, same, teardown }
 
   equal(skipCount, 0)
   equal(hitCount, 0)
-});
-
-[
-  {
-    title: 'using all option as string',
-    cacheConfig: { all: 'true' },
-    expect: 'all must be an boolean'
-  },
-  {
-    title: 'using ttl option as string',
-    cacheConfig: { ttl: '10' },
-    expect: 'ttl must be a number'
-  },
-  {
-    title: 'using cacheSize option as string',
-    cacheConfig: { cacheSize: '1024' },
-    expect: 'cacheSize must be a number'
-  },
-  {
-    title: 'using onHit option as string',
-    cacheConfig: { onHit: 'not a function' },
-    expect: 'onHit must be a function'
-  },
-  {
-    title: 'using onMiss option as string',
-    cacheConfig: { onMiss: 'not a function' },
-    expect: 'onMiss must be a function'
-  },
-  {
-    title: 'using onSkip option as string',
-    cacheConfig: { onSkip: 'not a function' },
-    expect: 'onSkip must be a function'
-  },
-  {
-    title: 'using policy option as string',
-    cacheConfig: { policy: 'not an object' },
-    expect: 'policy must be an object'
-  }
-].forEach(useCase => {
-  test(useCase.title, async (t) => {
-    t.plan(1)
-    const app = fastify()
-    app.register(mercurius)
-
-    await t.rejects(app.register(cache, useCase.cacheConfig), useCase.expect)
-  })
 })
 
 test('Unmatched schema for Query', async ({ rejects, teardown }) => {
@@ -765,4 +712,393 @@ test('Unmatched schema for Query', async ({ rejects, teardown }) => {
       }
     }), 'Query does not match schema: foo')
   }
+})
+
+test('use references and invalidation', async ({ fail, pass, plan, teardown }) => {
+  plan(1)
+
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      get (id: Int): String
+    }
+    type Mutation {
+      set (id: Int): String
+    }
+  `
+
+  const resolvers = {
+    Query: {
+      async get (_, { id }) {
+        return 'get ' + id
+      }
+    },
+    Mutation: {
+      async set (_, { id }) {
+        return 'set ' + id
+      }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  let miss = 0
+  app.register(cache, {
+    ttl: 100,
+    storage: { type: 'memory', options: { invalidation: true } },
+    onHit (type, name) {
+      fail()
+    },
+    onMiss (type, name) {
+      if (++miss === 2) { pass() }
+    },
+    policy: {
+      Query: {
+        get: {
+          references: async () => ['gets']
+        }
+      },
+      Mutation: {
+        set: {
+          invalidate: async () => ['gets']
+        }
+      }
+    }
+  })
+
+  await app.inject({
+    method: 'POST',
+    url: '/graphql',
+    body: { query: '{ get(id: 11) }' }
+  })
+
+  await app.inject({
+    method: 'POST',
+    url: '/graphql',
+    body: { query: 'mutation { set(id: 11) }' }
+  })
+
+  await app.inject({
+    method: 'POST',
+    url: '/graphql',
+    body: { query: '{ get(id: 11) }' }
+  })
+})
+
+test('sync invalidation and references', async ({ fail, pass, plan, teardown }) => {
+  plan(1)
+
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      get (id: Int): String
+    }
+    type Mutation {
+      set (id: Int): String
+    }
+  `
+
+  const resolvers = {
+    Query: {
+      async get (_, { id }) {
+        return 'get ' + id
+      }
+    },
+    Mutation: {
+      async set (_, { id }) {
+        return 'set ' + id
+      }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  let miss = 0
+  app.register(cache, {
+    ttl: 100,
+    storage: { type: 'memory', options: { invalidation: true } },
+    onHit (type, name) {
+      fail()
+    },
+    onMiss (type, name) {
+      if (++miss === 2) { pass() }
+    },
+    policy: {
+      Query: {
+        get: {
+          references: () => ['gets']
+        }
+      },
+      Mutation: {
+        set: {
+          invalidate: () => ['gets']
+        }
+      }
+    }
+  })
+
+  await app.inject({
+    method: 'POST',
+    url: '/graphql',
+    body: { query: '{ get(id: 11) }' }
+  })
+
+  await app.inject({
+    method: 'POST',
+    url: '/graphql',
+    body: { query: 'mutation { set(id: 11) }' }
+  })
+
+  await app.inject({
+    method: 'POST',
+    url: '/graphql',
+    body: { query: '{ get(id: 11) }' }
+  })
+})
+
+test('should get the result even if cache functions throw an error / skip', async ({ same, teardown }) => {
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+  type Query {
+    add(x: Int, y: Int): Int
+  }
+  `
+
+  const resolvers = {
+    Query: {
+      async add (_, { x, y }) { return x + y }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  app.register(cache, {
+    ttl: 10,
+    all: true,
+    skip: () => { throw new Error('kaboom') }
+  })
+
+  same(await request({ app, query: '{ add(x: 1, y: 1) }' }), { data: { add: 2 } })
+})
+
+test('should get the result even if cache functions throw an error / onSkip', async ({ same, teardown }) => {
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+  type Query {
+    add(x: Int, y: Int): Int
+  }
+  `
+
+  const resolvers = {
+    Query: {
+      async add (_, { x, y }) { return x + y }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  app.register(cache, {
+    ttl: 10,
+    all: true,
+    onSkip: () => { throw new Error('kaboom') }
+  })
+
+  same(await request({ app, query: '{ add(x: 1, y: 1) }' }), { data: { add: 2 } })
+})
+
+test('should get the result even if cache functions throw an error / policy.skip', async ({ same, teardown }) => {
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+  type Query {
+    add(x: Int, y: Int): Int
+  }
+  `
+
+  const resolvers = {
+    Query: {
+      async add (_, { x, y }) { return x + y }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  app.register(cache, {
+    ttl: 10,
+    policy: {
+      Query: {
+        add: { skip: () => { throw new Error('kaboom') } }
+      }
+    }
+  })
+
+  same(await request({ app, query: '{ add(x: 1, y: 1) }' }), { data: { add: 2 } })
+})
+
+test('should get the result even if cache functions throw an error / sync policy.invalidate', async ({ teardown }) => {
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      get (id: Int): String
+    }
+    type Mutation {
+      set (id: Int): String
+    }
+  `
+
+  const resolvers = {
+    Query: {
+      async get (_, { id }) {
+        return 'get ' + id
+      }
+    },
+    Mutation: {
+      async set (_, { id }) {
+        return 'set ' + id
+      }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+  app.register(cache, {
+    ttl: 100,
+    storage: { type: 'memory', options: { invalidation: true } },
+    policy: {
+      Mutation: {
+        set: {
+          // invalidate: () => { throw new Error('kaboom') }
+        }
+      },
+      Query: { get: true }
+    }
+  })
+
+  await request({ app, query: 'mutation { set(id: 11) }' })
+})
+
+test('should call onError if skip function throws an error', async ({ plan, teardown, equal, same }) => {
+  plan(4)
+
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      get (id: Int): String
+    }
+  `
+
+  const resolvers = {
+    Query: { async get (_, { id }) { return 'get ' + id } }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+  app.register(cache, {
+    ttl: 1,
+    all: true,
+    skip: () => { throw new Error('kaboom') },
+    onError (type, name, error) {
+      equal(type, 'Query')
+      equal(name, 'get')
+      equal(error.message, 'kaboom')
+    }
+  })
+
+  same(await request({ app, query: '{ get(id: 11) }' }), { data: { get: 'get 11' } })
+})
+
+test('should call onError if resolver function throws an error', async ({ plan, equal, teardown }) => {
+  plan(3)
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+  type Query {
+    add(x: Int, y: Int): Int
+  }
+  `
+
+  const resolvers = {
+    Query: {
+      async add (_, { x, y }) { throw new Error('kaboom') }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  app.register(cache, {
+    ttl: 1,
+    all: true,
+    onError: (type, name, error) => {
+      equal(type, 'Query')
+      equal(name, 'add')
+      equal(error.message, 'kaboom')
+    }
+  })
+
+  await request({ app, query: '{ add(x: 1, y: 1) }' })
+})
+
+test('should call onError if invalidation function throws an error', async ({ equal, plan, teardown }) => {
+  plan(3)
+
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      get (id: Int): String
+    }
+    type Mutation {
+      set (id: Int): String
+    }
+  `
+
+  const resolvers = {
+    Query: {
+      async get (_, { id }) {
+        return 'get ' + id
+      }
+    },
+    Mutation: {
+      async set (_, { id }) {
+        return 'set ' + id
+      }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  app.register(cache, {
+    ttl: 1,
+    storage: { type: 'memory', options: { invalidation: true } },
+    onError (type, name, error) {
+      equal(type, 'Mutation')
+      equal(name, 'set')
+      equal(error.message, 'kaboom')
+    },
+    policy: {
+      Query: { get: { references: async () => ['gets'] } },
+      Mutation: {
+        set: {
+          invalidate: async () => { throw new Error('kaboom') }
+        }
+      }
+    }
+  })
+
+  await request({ app, query: '{ get(id: 11) }' })
+  await request({ app, query: 'mutation { set(id: 11) }' })
+  await request({ app, query: '{ get(id: 11) }' })
 })

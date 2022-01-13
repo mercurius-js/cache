@@ -5,18 +5,18 @@ Federation is fully supported.
 
 Based on preliminary testing, it is possible to achieve a significant
 throughput improvement at the expense of the freshness of the data.
-Setting the ttl accordingly is of critical importance.
+Setting the ttl accordingly and/or a good invalidation strategy is of critical importance.
 
-Under the covers it uses [`async-cache-dedupe`](https://github.com/mcollina/async-cache-dedupe)
+Under the covers, it uses [`async-cache-dedupe`](https://github.com/mcollina/async-cache-dedupe)
 which will also deduplicate the calls.
 
 ## Install
 
 ```bash
-npm i fastify mercurius mercurius-cache
+npm i fastify mercurius mercurius-cache graphql
 ```
 
-## Quick start
+## Quickstart
 
 ```js
 'use strict'
@@ -78,18 +78,64 @@ Example
   ttl: 10
 ```
 
-- **cacheSize**
+- **all**
 
-the maximum amount of entries to fit in the cache for each query, default `1024`.
+use the cache in all resolvers; default is false. Use either `policy` or `all` but not both.  
 Example  
 
 ```js
-  cacheSize: 2048
+  all: true
 ```
+
+- **storage**
+
+default cache is in `memory`, but a `redis` storage can be used for a larger and shared cache.  
+Storage options are:
+
+- **type**: `memory` (default) or `redis`
+- **options**: by storage type
+  - for `memory`
+    - **size**: maximum number of items to store in the cache _per resolver_. Default is `1024`.
+    - **invalidation**: enable invalidation, see [documentation](#invalidation). Default is disabled.
+    - **log**: logger instance `pino` compatible, default is the `app.log` instance.
+
+    Example  
+
+    ```js
+      storage: {
+        type: 'memory',
+        options: {
+          size: 2048
+        }
+      }
+    ```
+
+  - for `redis`
+    - **client**: a redis client instance, mandatory. Should be an `ioredis` client or compatible.
+    - **invalidation**: enable invalidation, see [documentation](#invalidation). Default is disabled.
+    - **invalidation.referencesTTL**: references TTL in seconds. Default is the max `ttl` between the main one and policies.
+    - **log**: logger instance `pino` compatible, default is the `app.log` instance.
+
+    Example
+
+    ```js
+      storage: {
+        type: 'redis',
+        options: {
+          client: new Redis(),
+          invalidation: {
+            referencesTTL: 60
+          }
+        }
+      }
+    ```
+
+See [https://github.com/mercurius-js/mercurius-cache-example](https://github.com/mercurius-js/mercurius-cache-example) for a complete complex use case.
 
 - **policy**
 
 specify queries to cache; default is empty.  
+Set it to `true` to cache using main `ttl`.
 Example  
 
 ```js
@@ -100,9 +146,63 @@ Example
   }
 ```
 
+- **policy~ttl**
+
+use a specific `ttl` for the policy, instead of the main one.  
+Example  
+
+```js
+  ttl: 10,
+  policy: {
+    Query: {
+      welcome: {
+        ttl: 5 // Query "welcome" will be cached for 5 seconds
+      },
+      bye: true // Query "bye" will be cached for 10 seconds
+    }
+  }
+```
+
+- **policy~storage**
+
+use specific storage for the policy, instead of the main one.  
+Can be useful to have, for example, in-memory storage for small data set along with the redis storage.  
+See [https://github.com/mercurius-js/mercurius-cache-example](https://github.com/mercurius-js/mercurius-cache-example) for a complete complex use case.  
+Example
+
+```js
+  storage: {
+    type: 'redis',
+    options: { client: new Redis() }
+  },
+  policy: {
+    Query: {
+      countries: {
+        ttl: 1440, // Query "countries" will be cached for 1 day
+        storage: { type: 'memory' }
+      }
+    }
+  }
+```
+
+- **policy~skip**
+
+skip cache use for a specific condition, `onSkip` will be triggered.  
+Example  
+
+```js
+  skip (self, arg, ctx, info) {
+    if (ctx.reply.request.headers.authorization) {
+      return true
+    }
+    return false
+  }
+```
+
 - **policy~extendKey**
 
-extend the key to cache responses by different request, for example to enable custom cache per user; see [examples/cache-per-user.js](examples/cache-per-user.js) for a complete use case.
+extend the key to cache responses by different requests, for example, to enable custom cache per user.  
+See [examples/cache-per-user.js](examples/cache-per-user.js).
 Example  
 
 ```js
@@ -117,41 +217,51 @@ Example
   }
 ```
 
-- **policy~ttl**
+- **policy~references**
 
-use a specific ttl for the policy, instead of the default one.  
+function to set the `references` for the query, see [invalidation](#invalidation) to know how to use references, and [https://github.com/mercurius-js/mercurius-cache-example](https://github.com/mercurius-js/mercurius-cache-example) for a complete use case.  
 Example  
 
 ```js
-  ttl: 10,
   policy: {
     Query: {
-      welcome: {
-        ttl: 5
+      user: {
+        references: ({source, args, context, info}, key, result) => {
+          if(!result) { return }
+          return [`user:${result.id}`]
+        }
+      },
+      users: {
+        references: ({source, args, context, info}, key, result) => {
+          if(!result) { return }
+          const references = result.map(user => (`user:${user.id}`))
+          references.push('users')
+          return references
+        }
       }
     }
   }
 ```
 
-- **policy~cacheSize**
+- **policy~invalidate**
 
-use a specific cacheSize for the policy, instead of the default one.  
+function to `invalidate` for the query by references, see [invalidation](#invalidation) to know how to use references, and [https://github.com/mercurius-js/mercurius-cache-example](https://github.com/mercurius-js/mercurius-cache-example) for a complete use case.  
+`invalidate` function can be sync or async.
 Example  
 
 ```js
   policy: {
-    cacheSize: 2048,
-    Query: {
-      welcome: {
-        cacheSize: 1024
+    Mutation: {
+      addUser: {
+        invalidate: (self, arg, ctx, info, result) => ['users']
       }
     }
   }
 ```
 
-- **policy~skip**
+- **skip**
 
-skip cache use for a specific condition.  
+skip cache use for a specific condition, `onSkip` will be triggered.  
 Example  
 
 ```js
@@ -163,30 +273,15 @@ Example
   }
 ```
 
-- **all**
+- **onDedupe**
 
-use the cache in all resolvers; default is false. Use either `policy` or `all` but not both.  
+called when a request is deduped.
+When multiple requests arrive at the same time, the dedupe system calls the resolver only once and serve all the request with the result of the first request - and after the result is cached.  
 Example  
 
 ```js
-  all: true
-```
-
-- **storage**
-
-default cache is in memory, but a different storage can be used for a larger cache. See [examples/redis.js](examples/redis.js) for a complete use case.  
-Example  
-
-```js
-  storage: {
-    async get (key) {
-      // fetch by key from storage
-      return storage.get(key)
-    },
-    async set (key, value) {
-      // set the value in the storage
-      return storage.set(key, value)
-    }
+  onDedupe (type, fieldName) {
+    console.log(`dedupe ${type} ${fieldName}`) 
   }
 ```
 
@@ -223,23 +318,20 @@ Example
   }
 ```
 
-- **skip**
+- **onError**
 
-skip cache use for a specific condition.  
+called when an error occurred on the caching operation.
 Example  
 
 ```js
-  skip (self, arg, ctx, info) {
-    if (ctx.reply.request.headers.authorization) {
-      return true
-    }
-    return false
+  onSkip (type, fieldName, error) {
+    console.error(`error on ${type} ${fieldName}`, error)
   }
 ```
 
 - **logInterval**
 
-This option enables cache report with hit/miss count for all queries specified in the policy.
+This option enables cache report with hit/miss/dedupes/skips count for all queries specified in the policy; default is disabled.
 The value of the interval is in *seconds*.  
 
 Example  
@@ -255,15 +347,128 @@ custom function for logging cache hits/misses. called every `logInterval` second
 Example  
 
 ```js
-  logReport (cacheReport) {
-    console.log(`Cache report - ${cacheReport}`)
+  logReport (report) {
+    console.log('Periodic cache report')
+    console.table(report)
   }
+
+// console table output
+
+┌───────────────┬─────────┬──────┬────────┬───────┐
+│     (index)   │ dedupes │ hits │ misses │ skips │
+├───────────────┼─────────┼──────┼────────┼───────┤
+│   Query.add   │    0    │  8   │   1    │   0   │
+│   Query.sub   │    0    │  2   │   6    │   0   │
+└───────────────┴─────────┴──────┴────────┴───────┘
+
+// report format
+{
+  "Query.add": {
+    "dedupes": 0,
+    "hits": 8,
+    "misses": 1,
+    "skips": 0
+  },
+  "Query.sub": {
+    "dedupes": 0,
+    "hits": 2,
+    "misses": 6,
+    "skips": 0
+  },
+}
 ```
+
+## Invalidation
+
+Along with `time to live` invalidation of the cache entries, we can use invalidation by keys.  
+The concept behind invalidation by keys is that entries have an auxiliary key set that explicitly links requests along with their result. These auxiliary keys are called here `references`.  
+The use case is common. Let's say we have an entry _user_ `{id: 1, name: "Alice"}`, it may change often or rarely, the `ttl` system is not accurate:
+
+- it can be updated before `ttl` expiration, in this case the old value is shown until expiration by `ttl`.  
+It may also be in more queries, for example, `getUser` and `findUsers`, so we need to keep their responses consistent
+- it's not been updated during `ttl` expiration, so in this case, we don't need to reload the value, because it's not changed
+
+To solve this common problem, we can use `references`.  
+We can say that the result of query `getUser(id: 1)` has reference `user~1`, and the result of query `findUsers`, containing `{id: 1, name: "Alice"},{id: 2, name: "Bob"}` has references `[user~1,user~2]`.
+So we can find the results in the cache by their `references`, independently of the request that generated them, and we can invalidate by `references`.
+
+When the mutation `updateUser` involves `user {id: 1}` we can remove all the entries in the cache that have references to `user~1`, so the result of `getUser(id: 1)` and `findUsers`, and they will be reloaded at the next request with the new data - but not the result of `getUser(id: 2)`.
+
+However, the operations required to do that could be expensive and not worthing it, for example, is not recommendable to cache frequently updating data by queries of `find` that have pagination/filtering/sorting.
+
+Explicit invalidation is `disabled` by default, you have to enable in `storage` settings.
+
+See [mercurius-cache-example](https://github.com/mercurius-js/mercurius-cache-example) for a complete example.
+
+### Redis
+
+Using a `redis` storage is the best choice for a shared cache for a cluster of a service instance.  
+However, using the invalidation system need to keep `references` updated, and remove the expired ones: while expired references do not compromise the cache integrity, they slow down the I/O operations.  
+
+So, redis storage has the `gc` function, to perform garbage collection.
+
+Example
+
+```js
+const client = new Redis(connection)
+const storage = createStorage('redis', { log, client, invalidation: true })
+
+// run in lazy mode, doing a full db iteration / but not a full clean up
+let cursor = 0
+do {
+  const report = await storage.gc('lazy', { lazy: { chunk: 200, cursor } })
+  cursor = report.cursor
+} while (cursor !== 0)
+
+// run in strict mode
+const report = await storage.gc('strict', { chunk: 250 })
+
+```
+
+In lazy mode, only `options.max` references are scanned every time, picking keys to check randomly; this operation is lighter while does not ensure references full clean up
+
+In strict mode, all references and keys are checked and cleaned; this operation scans the whole db and is slow, while it ensures full references clean up.
+
+`gc` options are:
+
+- **chunk** the chunk size of references analyzed per loops, default `64`
+- **lazy~chunk** the chunk size of references analyzed per loops in `lazy` mode, default `64`; if both `chunk` and `lazy.chunk` is set, the maximum one is taken
+- **lazy~cursor** the cursor offset, default zero; cursor should be set at `report.cursor` to continue scanning from the previous operation
+
+`storage.gc` function returns the `report` of the job, like
+
+```json
+"report":{
+  "references":{
+      "scanned":["r:user:8", "r:group:11", "r:group:16"],
+      "removed":["r:user:8", "r:group:16"]
+  },
+  "keys":{
+      "scanned":["users~1"],
+      "removed":["users~1"]
+  },
+  "loops":4,
+  "cursor":0,
+  "error":null
+}
+```
+
+An effective strategy is to run often `lazy` cleans and a `strict` clean sometimes.  
+The report contains useful information about the gc cycle, use them to adjust params of the gc utility, settings depending on the size, and the mutability of cached data.
+
+A way is to run it programmatically, as in [https://github.com/mercurius-js/mercurius-cache-example](https://github.com/mercurius-js/mercurius-cache-example) or set up cronjobs as described in [examples/redis-gc](examples/redis-gc) - this one is useful when there are many instances of the mercurius server.  
+See [async-cache-dedupe#redis-garbage-collector](https://github.com/mcollina/async-cache-dedupe#redis-garbage-collector) for details.
+
+## Breaking Changes
+
+- version `0.11.0` -> `0.12.0`
+  - `options.cacheSize` is dropped in favor of `storage`
+  - `storage.get` and `storage.set` are removed in favor of `storage` options
 
 ## Benchmarks
 
 We have experienced up to 10x performance improvements in real-world scenarios.
-This repository also include a benchmark of a gateway and two federated services that shows
+This repository also includes a benchmark of a gateway and two federated services that shows
 that adding a cache with 10ms TTL can improve the performance by 4x:
 
 ```

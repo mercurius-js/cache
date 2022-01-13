@@ -3,6 +3,7 @@
 const fastify = require('fastify')
 const mercurius = require('mercurius')
 const redis = require('fastify-redis')
+const fp = require('fastify-plugin')
 const cache = require('mercurius-cache')
 
 const app = fastify({ logger: true })
@@ -36,41 +37,29 @@ app.register(mercurius, {
 
 app.register(redis)
 
-const ttl = 60
-
-app.register(cache, {
-  // note: no ttl option
-  policy: {
-    Query: {
-      add: true,
-      hello: true
-    }
-  },
-  storage: {
-    get: async function (key) {
-      try {
-        return JSON.parse(await app.redis.get(key))
-      } catch (err) {
-        app.log.error({ msg: 'error on get from redis', err, key })
+app.register(fp(async app => {
+  app.register(cache, {
+    ttl: 60,
+    policy: {
+      Query: {
+        add: true,
+        hello: true
       }
-      return null
     },
-    set: async function (key, value) {
-      try {
-        await app.redis.set(key, JSON.stringify(value), 'EX', ttl)
-      } catch (err) {
-        app.log.error({ msg: 'error on set into redis', err, key })
+    storage: {
+      type: 'redis',
+      options: {
+        client: app.redis
       }
+    },
+    onHit: function (type, fieldName) {
+      app.log.info({ msg: 'hit from cache', type, fieldName })
+    },
+    onMiss: function (type, fieldName) {
+      app.log.info({ msg: 'miss from cache', type, fieldName })
     }
-  },
-  onHit: function (type, fieldName) {
-    app.log.info({ msg: 'hit from cache', type, fieldName })
-  },
-  onMiss: function (type, fieldName) {
-    app.log.info({ msg: 'miss from cache', type, fieldName })
-  }
-
-})
+  }, { dependencies: ['fastify-redis'] })
+}))
 
 app.listen(3000)
 

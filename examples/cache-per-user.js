@@ -2,7 +2,7 @@
 
 const fastify = require('fastify')
 const mercurius = require('mercurius')
-const cache = require('../')
+const cache = require('mercurius-cache')
 
 const app = fastify({ logger: true })
 
@@ -35,6 +35,7 @@ app.register(mercurius, {
 })
 
 app.register(cache, {
+  ttl: 10,
   // all: true
   policy: {
     Query: {

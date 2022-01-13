@@ -31,6 +31,7 @@ app.register(mercurius, {
 })
 
 app.register(cache, {
+  ttl: 10,
   // all: true
   policy: {
     Query: {
