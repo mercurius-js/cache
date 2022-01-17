@@ -17,6 +17,6 @@
       "strictNullChecks": true,
       "declaration": true
     },
-    "include": ["*.ts", "test/**/*.ts"],
-    "exclude": []
+    "files": ["./test/types/index.test-d.ts"],
+    "exclude": ["node_modules"],
 }
