@@ -1,5 +1,4 @@
 
-   
 import { FastifyInstance } from 'fastify'
 export interface PolicyFieldOptions {
     ttl?: number
