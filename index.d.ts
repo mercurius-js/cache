@@ -1,4 +1,4 @@
-import { FastifyInstance, FastifyPluginAsync } from "fastify";
+import { FastifyPluginAsync } from "fastify";
 import { MercuriusPlugin } from "mercurius";
 export interface PolicyFieldOptions {
   ttl?: number;
