@@ -1,38 +1,21 @@
 import fastify from "fastify";
-import mercurius from "mercurius";
-import MercuriusCache, {
+import {
   MercuriusCacheOptions,
-  Policy,
+  MercuriusCachePolicy,
   PolicyFieldOptions,
-  Storage,
+  MercuriusCacheStorage,
+  MercuriusCacheContext,
 } from "../../index";
 import { expectAssignable } from "tsd";
+import mercuriusCache from "../../index";
 
 const app = fastify();
 
-const schema = `
-    type Query {
-        add(x: Int, y: Int): Int
-        hello: String
-    }
-`;
-
-const resolvers = {
-  Query: {
-    async add(_: any, { x, y }: any) {
-      return x + y;
-    },
-  },
-};
-
-app.register(mercurius, {
-  schema,
-  resolvers,
-});
-
 const emptyCacheOptions = {};
 expectAssignable<MercuriusCacheOptions>(emptyCacheOptions);
-app.register(MercuriusCache, emptyCacheOptions);
+app.register(mercuriusCache, emptyCacheOptions);
+
+expectAssignable<MercuriusCacheContext | undefined>(app.graphql.cache)
 
 const queryFieldPolicy = {
   ttl: 1,
@@ -47,7 +30,7 @@ const queryPolicy = {
   },
 };
 
-expectAssignable<Policy>(queryPolicy);
+expectAssignable<MercuriusCachePolicy>(queryPolicy);
 
 const cacheStorage = {
   type: "memory",
@@ -59,7 +42,7 @@ const cacheStorage = {
   },
 };
 
-expectAssignable<Storage>(cacheStorage);
+expectAssignable<MercuriusCacheStorage>(cacheStorage);
 
 const allValidCacheOptions = {
   all: false,
@@ -90,4 +73,6 @@ const allValidCacheOptions = {
   },
 };
 expectAssignable<MercuriusCacheOptions>(allValidCacheOptions);
-app.register(MercuriusCache, allValidCacheOptions);
+app.register(mercuriusCache, allValidCacheOptions);
+
+expectAssignable<MercuriusCacheContext | undefined>(app.graphql.cache)
