@@ -3,10 +3,12 @@ import {
   MercuriusCacheOptions,
   MercuriusCachePolicy,
   PolicyFieldOptions,
-  MercuriusCacheStorage,
+  MercuriusCacheStorageMemory,
+  MercuriusCacheStorageRedis,
   MercuriusCacheContext,
+  MercuriusCacheStorageType,
 } from "../../index";
-import { expectAssignable } from "tsd";
+import { expectAssignable, expectNotAssignable } from "tsd";
 import mercuriusCache from "../../index";
 
 const app = fastify();
@@ -19,7 +21,7 @@ expectAssignable<MercuriusCacheContext | undefined>(app.graphql.cache)
 
 const queryFieldPolicy = {
   ttl: 1,
-  storage: { type: "memory", options: { size: 1 } },
+  storage: { type: MercuriusCacheStorageType.MEMORY, options: { size: 1 } },
 };
 
 expectAssignable<PolicyFieldOptions>(queryFieldPolicy);
@@ -32,17 +34,36 @@ const queryPolicy = {
 
 expectAssignable<MercuriusCachePolicy>(queryPolicy);
 
-const cacheStorage = {
-  type: "memory",
+const wrongStorageType = {
+  type: "wrong type"
+}
+
+expectNotAssignable<MercuriusCacheStorageType>(wrongStorageType);
+
+const cacheRedisStorage = {
+  type: MercuriusCacheStorageType.REDIS,
   options: {
     client: {},
     invalidate: true,
-    size: 10000,
-    log: "storage log",
+    log: {log: "storage log"},
   },
 };
 
-expectAssignable<MercuriusCacheStorage>(cacheStorage);
+expectAssignable<MercuriusCacheStorageRedis>(cacheRedisStorage);
+expectNotAssignable<MercuriusCacheStorageMemory>(cacheRedisStorage);
+
+const cacheMemoryStorage = {
+  type: MercuriusCacheStorageType.MEMORY,
+  options: {
+    invalidate: true,
+    size: 10000,
+    log: {log: "storage log"},
+  },
+};
+
+expectAssignable<MercuriusCacheStorageMemory>(cacheMemoryStorage);
+expectNotAssignable<MercuriusCacheStorageRedis>(cacheMemoryStorage);
+
 
 const allValidCacheOptions = {
   all: false,
@@ -51,7 +72,7 @@ const allValidCacheOptions = {
   skip: () => {
     console.log("skip called!");
   },
-  storage: cacheStorage,
+  storage: cacheMemoryStorage,
   onDedupe: () => {
     console.log("onDedupe called!");
   },

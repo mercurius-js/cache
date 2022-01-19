@@ -2,7 +2,7 @@ import { FastifyPluginAsync } from "fastify";
 import { MercuriusPlugin } from "mercurius";
 export interface PolicyFieldOptions {
   ttl?: number;
-  storage?: MercuriusCacheStorage;
+  storage?: MercuriusCacheStorageMemory | MercuriusCacheStorageRedis;
   extendKey?: Function;
   skip?: Function;
   invalidate?: Function;
@@ -14,16 +14,31 @@ export type PolicyField = Record<PolicyFieldName, PolicyFieldOptions | object>;
 export type PolicyName = string;
 export type MercuriusCachePolicy = Record<PolicyName, PolicyField>;
 
-export interface MercuriusCacheStorageOptions {
-  client?: object;
-  invalidate?: boolean | { invalidate: boolean; referencesTTL: number };
-  size?: number;
-  log?: string;
+export interface MercuriusCacheStorageMemoryOptions {
+  size: number;
+  log?: object;
+  invalidate?: boolean;
 }
 
+export interface MercuriusCacheStorageRedisOptions {
+  client: object;
+  log?: object;
+  invalidate?: boolean | { invalidate: boolean; referencesTTL?: number };
+}
+
+export enum MercuriusCacheStorageType {
+  MEMORY = "memory",
+  REDIS = "redis",
+}
 export interface MercuriusCacheStorage {
-  type: string;
-  options?: MercuriusCacheStorageOptions;
+  type: "memory" | "redis";
+}
+export interface MercuriusCacheStorageMemory extends MercuriusCacheStorage {
+  options?: MercuriusCacheStorageMemoryOptions;
+}
+
+export interface MercuriusCacheStorageRedis extends MercuriusCacheStorage {
+  options?: MercuriusCacheStorageRedisOptions;
 }
 
 export interface MercuriusCacheOptions {
@@ -31,7 +46,7 @@ export interface MercuriusCacheOptions {
   policy?: MercuriusCachePolicy;
   ttl?: number;
   skip?: Function;
-  storage?: MercuriusCacheStorage;
+  storage?: MercuriusCacheStorageMemory | MercuriusCacheStorageRedis;
   onDedupe?: Function;
   onHit?: Function;
   onMiss?: Function;
@@ -81,17 +96,17 @@ export declare class Report {
 }
 
 /** Mercurius Cache is a plugin that adds an in-process caching layer to Mercurius. */
-declare const mercuriusCache: FastifyPluginAsync<MercuriusCacheOptions>
+declare const mercuriusCache: FastifyPluginAsync<MercuriusCacheOptions>;
 
 export interface MercuriusCacheContext {
-    refresh(): void;
-    clear(): void;
+  refresh(): void;
+  clear(): void;
 }
 
-declare module 'mercurius' {
-    interface MercuriusPlugin {
-      cache?: MercuriusCacheContext
-    }
+declare module "mercurius" {
+  interface MercuriusPlugin {
+    cache?: MercuriusCacheContext;
   }
+}
 
 export default mercuriusCache;
