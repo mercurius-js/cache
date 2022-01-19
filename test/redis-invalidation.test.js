@@ -4,7 +4,8 @@ const { test, before, teardown, beforeEach } = require('tap')
 const fastify = require('fastify')
 const mercurius = require('mercurius')
 const cache = require('..')
-const Redis = require('ioredis')
+const Redis = require('ioredis-mock')
+
 const redisClient = new Redis()
 
 const defaultPost = { method: 'POST', url: '/graphql' }
