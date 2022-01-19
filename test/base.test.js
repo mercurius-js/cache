@@ -566,6 +566,133 @@ test('using both policy and all options', async (t) => {
   await t.rejects(app.ready())
 })
 
+test('skip the cache if operation is Subscription', async ({ equal, same, teardown }) => {
+  const app = fastify()
+  teardown(app.close.bind(app))
+  let skipCount = 0
+  let hitCount = 0
+
+  const schema = `
+    type Notification {
+      id: ID!
+      message: String
+    }
+
+    type Query {
+      notifications: [Notification]
+    }
+
+    type Mutation {
+      addNotification(message: String): Notification
+    }
+
+    type Subscription {
+      notificationAdded: Notification
+    }    
+  `
+
+  let idCount = 1
+  const notifications = [
+    {
+      id: idCount,
+      message: 'Notification message'
+    }
+  ]
+
+  const resolvers = {
+    Query: {
+      notifications: () => notifications
+    },
+    Mutation: {
+      addNotification: (_, { message }, { pubsub }) => {
+        const id = idCount++
+        const notification = {
+          id,
+          message
+        }
+        notifications.push(notification)
+
+        pubsub.publish({
+          topic: 'NOTIFICATION_ADDED',
+          payload: {
+            notificationAdded: notification
+          }
+        })
+
+        return notification
+      }
+    },
+    Subscription: {
+      notificationAdded: {
+        subscribe: (_, __, { pubsub }) => pubsub.subscribe('NOTIFICATION_ADDED')
+      }
+    }
+  }
+
+  app.register(mercurius, {
+    schema,
+    resolvers,
+    subscription: true
+  })
+
+  app.register(cache, {
+    all: true,
+    onSkip (type, name) {
+      equal(type, 'Subscription')
+      equal(name, 'notificationAdded')
+      skipCount++
+    },
+    onHit (type, name) {
+      equal(type, 'Subscription')
+      equal(name, 'notificationAdded')
+      hitCount++
+    }
+  })
+
+  const query = 'mutation { addNotification(message: "test") { message } }'
+
+  {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/graphql',
+      body: {
+        query
+      }
+    })
+
+    equal(res.statusCode, 200)
+    same(res.json(), {
+      data: {
+        addNotification: {
+          message: 'test'
+        }
+      }
+    })
+  }
+
+  {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/graphql',
+      body: {
+        query
+      }
+    })
+
+    equal(res.statusCode, 200)
+    same(res.json(), {
+      data: {
+        addNotification: {
+          message: 'test'
+        }
+      }
+    })
+  }
+
+  equal(skipCount, 0)
+  equal(hitCount, 0)
+})
+
 test('skip the cache if operation is Mutation', async ({ equal, same, teardown }) => {
   const app = fastify()
   teardown(app.close.bind(app))
