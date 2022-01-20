@@ -37,7 +37,8 @@
     "tap": "^15.0.9",
     "tsd": "^0.19.1",
     "typescript": "^4.5.4",
-    "wait-on": "^6.0.0"
+    "wait-on": "^6.0.0",
+    "ws": "^8.4.2"
   },
   "tsd": {
     "directory": "./test/types"
