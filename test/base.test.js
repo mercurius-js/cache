@@ -3,6 +3,7 @@
 const { test } = require('tap')
 const fastify = require('fastify')
 const mercurius = require('mercurius')
+const WebSocket = require('ws')
 const cache = require('..')
 
 const { promisify } = require('util')
@@ -566,61 +567,27 @@ test('using both policy and all options', async (t) => {
   await t.rejects(app.ready())
 })
 
-test('skip the cache if operation is Subscription', async ({ equal, same, teardown }) => {
+test('skip the cache if operation is Subscription', (t) => {
   const app = fastify()
-  teardown(app.close.bind(app))
-  let skipCount = 0
-  let hitCount = 0
+  t.teardown(() => app.close())
 
   const schema = `
-    type Notification {
-      id: ID!
-      message: String
-    }
-
-    type Query {
-      notifications: [Notification]
-    }
-
-    type Mutation {
-      addNotification(message: String): Notification
-    }
-
-    type Subscription {
-      notificationAdded: Notification
-    }    
-  `
-
-  let idCount = 1
-  const notifications = [
-    {
-      id: idCount,
-      message: 'Notification message'
-    }
-  ]
+  type Notification {
+    id: ID!
+    message: String
+  }
+  type Query {
+    notifications: [Notification]
+  }
+  type Subscription {
+    notificationAdded: Notification
+  }
+`
+  const notifications = []
 
   const resolvers = {
     Query: {
       notifications: () => notifications
-    },
-    Mutation: {
-      addNotification: (_, { message }, { pubsub }) => {
-        const id = idCount++
-        const notification = {
-          id,
-          message
-        }
-        notifications.push(notification)
-
-        pubsub.publish({
-          topic: 'NOTIFICATION_ADDED',
-          payload: {
-            notificationAdded: notification
-          }
-        })
-
-        return notification
-      }
     },
     Subscription: {
       notificationAdded: {
@@ -637,60 +604,71 @@ test('skip the cache if operation is Subscription', async ({ equal, same, teardo
 
   app.register(cache, {
     all: true,
-    onSkip (type, name) {
-      equal(type, 'Subscription')
-      equal(name, 'notificationAdded')
-      skipCount++
+    onSkip () {
+      t.fail()
     },
-    onHit (type, name) {
-      equal(type, 'Subscription')
-      equal(name, 'notificationAdded')
-      hitCount++
+    onHit () {
+      t.fail()
     }
   })
 
-  const query = 'mutation { addNotification(message: "test") { message } }'
+  app.listen(0, err => {
+    t.error(err)
 
-  {
-    const res = await app.inject({
-      method: 'POST',
-      url: '/graphql',
-      body: {
-        query
-      }
-    })
+    const ws = new WebSocket('ws://localhost:' + (app.server.address()).port + '/graphql', 'graphql-ws')
+    const client = WebSocket.createWebSocketStream(ws, { encoding: 'utf8', objectMode: true })
+    t.teardown(client.destroy.bind(client))
+    client.setEncoding('utf8')
 
-    equal(res.statusCode, 200)
-    same(res.json(), {
-      data: {
-        addNotification: {
-          message: 'test'
+    client.write(JSON.stringify({
+      type: 'connection_init'
+    }))
+
+    client.write(JSON.stringify({
+      id: 1,
+      type: 'start',
+      payload: {
+        query: `
+        subscription {
+          notificationAdded {
+            id
+            message
+          }
         }
+        `
+      }
+    }))
+
+    client.on('data', chunk => {
+      const data = JSON.parse(chunk)
+      if (data.type === 'connection_ack') {
+        app.graphql.pubsub.publish({
+          topic: 'NOTIFICATION_ADDED',
+          payload: {
+            notificationAdded: {
+              id: 1,
+              message: 'test'
+            }
+          }
+        })
+      } else {
+        t.equal(chunk, JSON.stringify({
+          type: 'data',
+          id: 1,
+          payload: {
+            data: {
+              notificationAdded: {
+                id: '1',
+                message: 'test'
+              }
+            }
+          }
+        }))
+        client.end()
+        t.end()
       }
     })
-  }
-
-  {
-    const res = await app.inject({
-      method: 'POST',
-      url: '/graphql',
-      body: {
-        query
-      }
-    })
-
-    equal(res.statusCode, 200)
-    same(res.json(), {
-      data: {
-        addNotification: {
-          message: 'test'
-        }
-      }
-    })
-  }
-
-  equal(skipCount, 0)
-  equal(hitCount, 0)
+  })
 })
 
 test('skip the cache if operation is Mutation', async ({ equal, same, teardown }) => {

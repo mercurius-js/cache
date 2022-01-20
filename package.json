@@ -34,7 +34,8 @@
     "split2": "^4.1.0",
     "standard": "^16.0.3",
     "tap": "^15.0.9",
-    "wait-on": "^6.0.0"
+    "wait-on": "^6.0.0",
+    "ws": "^8.4.2"
   },
   "dependencies": {
     "async-cache-dedupe": "^1.0.0",
