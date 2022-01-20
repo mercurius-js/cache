@@ -44,7 +44,6 @@ test('redis invalidation', async () => {
   }
 
   test('should remove storage keys by references', async t => {
-    t.plan(7)
     // Setup Fastify and Mercurius
     const app = fastify()
     t.teardown(app.close.bind(app))
@@ -94,7 +93,6 @@ test('redis invalidation', async () => {
   })
 
   test('should not remove storage key by not existing reference', async t => {
-    t.plan(7)
     // Setup Fastify and Mercurius
     const app = fastify()
     t.teardown(app.close.bind(app))
@@ -144,7 +142,6 @@ test('redis invalidation', async () => {
   })
 
   test('should invalidate more than one reference at once', async t => {
-    t.plan(7)
     // Setup Fastify and Mercurius
     const app = fastify()
     t.teardown(app.close.bind(app))
@@ -194,7 +191,6 @@ test('redis invalidation', async () => {
   })
 
   test('should remove storage keys by references, but not the ones still alive', async t => {
-    t.plan(4)
     // Setup Fastify and Mercurius
     const app = fastify()
     t.teardown(app.close.bind(app))
@@ -290,10 +286,6 @@ test('redis invalidation', async () => {
     })
     // Run the request and cache it
     await request({ app, query: '{ get(id: 11) }' })
-    try {
-      await request({ app, query: 'mutation { set(id: 11) }' })
-    } catch (e) {
-      t.fail()
-    }
+    await request({ app, query: 'mutation { set(id: 11) }' })
   })
 })
