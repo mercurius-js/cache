@@ -407,10 +407,14 @@ However, using the invalidation system need to keep `references` updated, and re
 
 So, redis storage has the `gc` function, to perform garbage collection.
 
-Example
+See this example in [mercurius-cache-example/plugins/cache.js](https://github.com/mercurius-js/mercurius-cache-example/blob/master/plugins/cache.js) about how to run gc on a single instance service.
+
+Another example:
 
 ```js
+const { createStorage } = require('async-cache-dedupe')
 const client = new Redis(connection)
+
 const storage = createStorage('redis', { log, client, invalidation: true })
 
 // run in lazy mode, doing a full db iteration / but not a full clean up

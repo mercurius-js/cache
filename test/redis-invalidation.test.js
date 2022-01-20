@@ -1,6 +1,6 @@
 'use strict'
 
-const { test, before, teardown, beforeEach } = require('tap')
+const { test, teardown, beforeEach } = require('tap')
 const fastify = require('fastify')
 const mercurius = require('mercurius')
 const cache = require('..')
@@ -8,10 +8,6 @@ const Redis = require('ioredis')
 const { request } = require('./helper')
 
 const redisClient = new Redis()
-
-before(async () => {
-  await redisClient.flushall()
-})
 
 teardown(async () => {
   await redisClient.quit()
@@ -88,7 +84,7 @@ test('redis invalidation', async () => {
     // Request a mutation
     await request({ app, query: 'mutation { set(id: 11) }' })
     t.equal(miss, 3)
-    // 'get:11' should not be cached
+    // 'get:11' should not be present in cache anymore
     await request({ app, query: '{ get(id: 11) }' })
     t.equal(miss, 4)
     await request({ app, query: '{ search(id: 11) }' })
@@ -138,7 +134,7 @@ test('redis invalidation', async () => {
     // Request a mutation
     await request({ app, query: 'mutation { set(id: 11) }' })
     t.equal(miss, 3)
-    // 'get:11' should be cached
+    // 'get:11' should be still in cache
     await request({ app, query: '{ get(id: 11) }' })
     t.equal(miss, 3)
     await request({ app, query: '{ search(id: 11) }' })
@@ -188,7 +184,7 @@ test('redis invalidation', async () => {
     // Request a mutation
     await request({ app, query: 'mutation { set(id: 11) }' })
     t.equal(miss, 3)
-    // 'get' should not be cached
+    // All 'get' should not be present in cache anymore
     await request({ app, query: '{ get(id: 11) }' })
     t.equal(miss, 4)
     await request({ app, query: '{ search(id: 11) }' })
@@ -253,8 +249,9 @@ test('redis invalidation', async () => {
       await redisClient.get((await redisClient.smembers('r:search:11'))[0]),
       '"search 11"'
     )
-    // This should not be cached, should enter miss and not hit
+    // 'get:11' should not be present in cache anymore,
     failHit = true
+    // should trigger onMiss and not onHit
     await request({ app, query: '{ get(id: 11) }' })
   })
 
@@ -298,6 +295,5 @@ test('redis invalidation', async () => {
     } catch (e) {
       t.fail()
     }
-    // t.doesNotThrow(() => request({ app, query: 'mutation { set(id: 11) }' }))
   })
 })
