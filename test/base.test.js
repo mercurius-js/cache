@@ -569,6 +569,7 @@ test('using both policy and all options', async (t) => {
 
 test('skip the cache if operation is Subscription', (t) => {
   const app = fastify()
+  t.plan(2)
   t.teardown(() => app.close())
 
   const schema = `
