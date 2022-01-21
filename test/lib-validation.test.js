@@ -20,6 +20,24 @@ test('should get default options', async (t) => {
   t.equal(typeof options.onError, 'function')
 })
 
+test('should get default options with log object', async (t) => {
+  const app = { log: { debug: () => 'debug error' } }
+  const options = validateOpts(app)
+  t.same(options.storage, { type: 'memory' })
+  t.equal(options.ttl, 0)
+  t.equal(options.all, undefined)
+  t.equal(options.policy, undefined)
+  t.equal(options.skip, undefined)
+  t.equal(options.logInterval, undefined)
+  t.equal(options.logReport, undefined)
+  t.equal(typeof options.onDedupe, 'function')
+  t.equal(typeof options.onHit, 'function')
+  t.equal(typeof options.onMiss, 'function')
+  t.equal(typeof options.onSkip, 'function')
+  t.equal(typeof options.onError, 'function')
+  t.equal(options.onError(), 'debug error')
+})
+
 test('should get default storage.options', async (t) => {
   const options = {
     ttl: 1,
@@ -96,6 +114,11 @@ const cases = [
     title: 'should get error using all as string',
     options: { all: 'true' },
     expect: /all must be a boolean/
+  },
+  {
+    title: 'should get error using all and policy',
+    options: { all: true, policy: {} },
+    expect: /policy and all options are exclusive/
   },
   {
     title: 'should get error using ttl as string',
