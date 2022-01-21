@@ -137,9 +137,8 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
   return async function (self, arg, ctx, info) {
     let result
     try {
-      // dont use cache on mutation
-      // TODO dont cache also subscriptions
-      if (info.operation && info.operation.operation === 'mutation') {
+      // dont use cache on mutation and subscriptions
+      if (info.operation && (info.operation.operation === 'mutation' || info.operation.operation === 'subscription')) {
         result = await originalFieldResolver(self, arg, ctx, info)
       } else if (
         (skip && (await skip(self, arg, ctx, info))) ||

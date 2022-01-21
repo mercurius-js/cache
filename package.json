@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "description": "Cache the results of your GraphQL resolvers, for Mercurius",
   "main": "index.js",
+  "types": "index.d.ts",
   "scripts": {
-    "test": "standard | snazzy && tap test/*test.js",
+    "test": "standard | snazzy && tap test/*test.js && tsd",
     "lint:fix": "standard --fix"
   },
   "repository": {
@@ -35,7 +36,13 @@
     "split2": "^4.1.0",
     "standard": "^16.0.3",
     "tap": "^15.0.9",
-    "wait-on": "^6.0.0"
+    "tsd": "^0.19.1",
+    "typescript": "^4.5.4",
+    "wait-on": "^6.0.0",
+    "ws": "^8.4.2"
+  },
+  "tsd": {
+    "directory": "./test/types"
   },
   "dependencies": {
     "async-cache-dedupe": "^1.0.0",

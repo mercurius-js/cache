@@ -3,6 +3,7 @@
 const { test } = require('tap')
 const fastify = require('fastify')
 const mercurius = require('mercurius')
+const WebSocket = require('ws')
 const cache = require('..')
 
 const { promisify } = require('util')
@@ -564,6 +565,111 @@ test('using both policy and all options', async (t) => {
   })
 
   await t.rejects(app.ready())
+})
+
+test('skip the cache if operation is Subscription', (t) => {
+  const app = fastify()
+  t.plan(2)
+  t.teardown(() => app.close())
+
+  const schema = `
+  type Notification {
+    id: ID!
+    message: String
+  }
+  type Query {
+    notifications: [Notification]
+  }
+  type Subscription {
+    notificationAdded: Notification
+  }
+`
+  const notifications = []
+
+  const resolvers = {
+    Query: {
+      notifications: () => notifications
+    },
+    Subscription: {
+      notificationAdded: {
+        subscribe: (_, __, { pubsub }) => pubsub.subscribe('NOTIFICATION_ADDED')
+      }
+    }
+  }
+
+  app.register(mercurius, {
+    schema,
+    resolvers,
+    subscription: true
+  })
+
+  app.register(cache, {
+    all: true,
+    onSkip () {
+      t.fail()
+    },
+    onHit () {
+      t.fail()
+    }
+  })
+
+  app.listen(0, err => {
+    t.error(err)
+
+    const ws = new WebSocket('ws://localhost:' + (app.server.address()).port + '/graphql', 'graphql-ws')
+    const client = WebSocket.createWebSocketStream(ws, { encoding: 'utf8', objectMode: true })
+    t.teardown(client.destroy.bind(client))
+    client.setEncoding('utf8')
+
+    client.write(JSON.stringify({
+      type: 'connection_init'
+    }))
+
+    client.write(JSON.stringify({
+      id: 1,
+      type: 'start',
+      payload: {
+        query: `
+        subscription {
+          notificationAdded {
+            id
+            message
+          }
+        }
+        `
+      }
+    }))
+
+    client.on('data', chunk => {
+      const data = JSON.parse(chunk)
+      if (data.type === 'connection_ack') {
+        app.graphql.pubsub.publish({
+          topic: 'NOTIFICATION_ADDED',
+          payload: {
+            notificationAdded: {
+              id: 1,
+              message: 'test'
+            }
+          }
+        })
+      } else {
+        t.equal(chunk, JSON.stringify({
+          type: 'data',
+          id: 1,
+          payload: {
+            data: {
+              notificationAdded: {
+                id: '1',
+                message: 'test'
+              }
+            }
+          }
+        }))
+        client.end()
+        t.end()
+      }
+    })
+  })
 })
 
 test('skip the cache if operation is Mutation', async ({ equal, same, teardown }) => {
