@@ -21,7 +21,10 @@ test('should get default options', async (t) => {
 })
 
 test('should get default options with log object', async (t) => {
-  const app = { log: { debug: () => 'debug error' } }
+  t.plan(13)
+  const app = {
+    log: { debug }
+  }
   const options = validateOpts(app)
   t.same(options.storage, { type: 'memory' })
   t.equal(options.ttl, 0)
@@ -35,7 +38,17 @@ test('should get default options with log object', async (t) => {
   t.equal(typeof options.onMiss, 'function')
   t.equal(typeof options.onSkip, 'function')
   t.equal(typeof options.onError, 'function')
-  t.equal(options.onError(), 'debug error')
+  // Trigger options.onError to be tested on callback at top
+  const except = {
+    prefix: 'Query',
+    fieldName: 'add',
+    err: 'Error',
+    msg: 'Mercurius cache error'
+  }
+  options.onError(except.prefix, except.fieldName, except.err)
+  function debug (params) {
+    t.same(params, except)
+  }
 })
 
 test('should get default storage.options', async (t) => {
