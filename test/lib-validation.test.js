@@ -20,6 +20,37 @@ test('should get default options', async (t) => {
   t.equal(typeof options.onError, 'function')
 })
 
+test('should get default options with log object', async (t) => {
+  t.plan(13)
+  const app = {
+    log: { debug }
+  }
+  const options = validateOpts(app)
+  t.same(options.storage, { type: 'memory' })
+  t.equal(options.ttl, 0)
+  t.equal(options.all, undefined)
+  t.equal(options.policy, undefined)
+  t.equal(options.skip, undefined)
+  t.equal(options.logInterval, undefined)
+  t.equal(options.logReport, undefined)
+  t.equal(typeof options.onDedupe, 'function')
+  t.equal(typeof options.onHit, 'function')
+  t.equal(typeof options.onMiss, 'function')
+  t.equal(typeof options.onSkip, 'function')
+  t.equal(typeof options.onError, 'function')
+  // Trigger options.onError to be tested on callback at top
+  const except = {
+    prefix: 'Query',
+    fieldName: 'add',
+    err: 'Error',
+    msg: 'Mercurius cache error'
+  }
+  options.onError(except.prefix, except.fieldName, except.err)
+  function debug (params) {
+    t.same(params, except)
+  }
+})
+
 test('should get default storage.options', async (t) => {
   const options = {
     ttl: 1,
@@ -96,6 +127,11 @@ const cases = [
     title: 'should get error using all as string',
     options: { all: 'true' },
     expect: /all must be a boolean/
+  },
+  {
+    title: 'should get error using all and policy',
+    options: { all: true, policy: {} },
+    expect: /policy and all options are exclusive/
   },
   {
     title: 'should get error using ttl as string',
