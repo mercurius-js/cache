@@ -567,10 +567,10 @@ test('using both policy and all options', async (t) => {
   await t.rejects(app.ready())
 })
 
-test('skip the cache if operation is Subscription', (t) => {
+test('skip the cache if operation is Subscription', ({ plan, teardown, fail, error, end, equal }) => {
   const app = fastify()
-  t.plan(2)
-  t.teardown(() => app.close())
+  plan(2)
+  teardown(() => app.close())
 
   const schema = `
   type Notification {
@@ -606,19 +606,19 @@ test('skip the cache if operation is Subscription', (t) => {
   app.register(cache, {
     all: true,
     onSkip () {
-      t.fail()
+      fail()
     },
     onHit () {
-      t.fail()
+      fail()
     }
   })
 
   app.listen(0, err => {
-    t.error(err)
+    error(err)
 
     const ws = new WebSocket('ws://localhost:' + (app.server.address()).port + '/graphql', 'graphql-ws')
     const client = WebSocket.createWebSocketStream(ws, { encoding: 'utf8', objectMode: true })
-    t.teardown(client.destroy.bind(client))
+    teardown(client.destroy.bind(client))
     client.setEncoding('utf8')
 
     client.write(JSON.stringify({
@@ -653,7 +653,7 @@ test('skip the cache if operation is Subscription', (t) => {
           }
         })
       } else {
-        t.equal(chunk, JSON.stringify({
+        equal(chunk, JSON.stringify({
           type: 'data',
           id: 1,
           payload: {
@@ -666,17 +666,16 @@ test('skip the cache if operation is Subscription', (t) => {
           }
         }))
         client.end()
-        t.end()
+        end()
       }
     })
   })
 })
 
-test('skip the cache if operation is Mutation', async ({ equal, same, teardown }) => {
+test('skip the cache if operation is Mutation', async ({ equal, same, teardown, fail, plan }) => {
   const app = fastify()
+  plan(6)
   teardown(app.close.bind(app))
-  let skipCount = 0
-  let hitCount = 0
 
   const schema = `
     type Mutation {
@@ -700,15 +699,11 @@ test('skip the cache if operation is Mutation', async ({ equal, same, teardown }
 
   app.register(cache, {
     all: true,
-    onSkip (type, name) {
-      equal(type, 'Mutation')
-      equal(name, 'add')
-      skipCount++
+    onSkip () {
+      fail()
     },
-    onHit (type, name) {
-      equal(type, 'Mutation')
-      equal(name, 'add')
-      hitCount++
+    onHit () {
+      fail()
     }
   })
 
@@ -764,9 +759,6 @@ test('skip the cache if operation is Mutation', async ({ equal, same, teardown }
       }
     })
   }
-
-  equal(skipCount, 0)
-  equal(hitCount, 0)
 })
 
 test('Unmatched schema for Query', async ({ rejects, teardown }) => {
