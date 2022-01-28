@@ -1,6 +1,6 @@
 'use strict'
 
-const { test } = require('tap')
+const { test, mock } = require('tap')
 const fastify = require('fastify')
 const mercurius = require('mercurius')
 const WebSocket = require('ws')
@@ -169,7 +169,7 @@ test('No TTL, do not use cache', async ({ equal, same, pass, plan, teardown }) =
   }
 })
 
-test('cache a nested resolver with loaders', async ({ same, pass, plan, teardown }) => {
+test('cache a nested resolver with loaders', async ({ same, pass, teardown }) => {
   pass(4)
   const app = fastify()
   teardown(app.close.bind(app))
@@ -366,7 +366,7 @@ test('missing policy', async (t) => {
   await t.rejects(app.ready())
 })
 
-test('cache all resolvers', async ({ same, pass, plan, teardown }) => {
+test('cache all resolvers', async ({ same, pass, teardown }) => {
   pass(4)
   const app = fastify()
   teardown(app.close.bind(app))
@@ -1199,4 +1199,185 @@ test('should call onError if invalidation function throws an error', async ({ eq
   await request({ app, query: '{ get(id: 11) }' })
   await request({ app, query: 'mutation { set(id: 11) }' })
   await request({ app, query: '{ get(id: 11) }' })
+})
+
+test('should call onError internally inside async-cache-dedupe for resolver', async ({ equal, plan, teardown }) => {
+  plan(4)
+
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+  type Query {
+    add(x: Int, y: Int): Int
+  }
+  `
+
+  const resolvers = {
+    Query: {
+      async add (_, { x, y }) { throw new Error('kaboom') }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  // Checking inside async-cache-dedupe
+  const dedupe = require('async-cache-dedupe')
+  const mockCache = mock('..', {
+    'async-cache-dedupe': {
+      createCache: (options) => {
+        const created = dedupe.createCache(options)
+        const originalDefine = created.define.bind(created)
+        created.define = function (name, opts, func) {
+          const originalError = opts.onError
+          opts.onError = function (error) {
+            equal(error.message, 'kaboom')
+            originalError(error)
+          }
+          return originalDefine(name, opts, func)
+        }
+        return created
+      }
+    }
+  })
+
+  app.register(mockCache, {
+    ttl: 1,
+    all: true,
+    onError: (type, name, error) => {
+      equal(type, 'Query')
+      equal(name, 'add')
+      equal(error.message, 'kaboom')
+    }
+  })
+
+  await request({ app, query: '{ add(x: 1, y: 1) }' })
+})
+
+test('should not call onError internally inside async-cache-dedupe for invalidation', async ({ equal, plan, teardown, fail }) => {
+  plan(3)
+
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      get (id: Int): String
+    }
+    type Mutation {
+      set (id: Int): String
+    }
+  `
+
+  const resolvers = {
+    Query: {
+      async get (_, { id }) {
+        return 'get ' + id
+      }
+    },
+    Mutation: {
+      async set (_, { id }) {
+        return 'set ' + id
+      }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  // Checking inside async-cache-dedupe, invalidate should not call onError
+  const dedupe = require('async-cache-dedupe')
+  const mockCache = mock('..', {
+    'async-cache-dedupe': {
+      createCache: (options) => {
+        const created = dedupe.createCache(options)
+        options.onError = () => fail()
+        const originalDefine = created.define.bind(created)
+        created.define = function (name, opts, func) {
+          opts.onError = () => fail()
+          return originalDefine(name, opts, func)
+        }
+        return created
+      }
+    }
+  })
+
+  app.register(mockCache, {
+    ttl: 1,
+    storage: { type: 'memory', options: { invalidation: true } },
+    onError (type, name, error) {
+      equal(type, 'Mutation')
+      equal(name, 'set')
+      equal(error.message, 'kaboom')
+    },
+    policy: {
+      Query: { get: { references: async () => ['gets'] } },
+      Mutation: {
+        set: {
+          invalidate: async () => { throw new Error('kaboom') }
+        }
+      }
+    }
+  })
+
+  await request({ app, query: '{ get(id: 11) }' })
+  await request({ app, query: 'mutation { set(id: 11) }' })
+  await request({ app, query: '{ get(id: 11) }' })
+})
+
+test('should call onError with Internal Error when mocked define receives no onError', async ({ equal, plan, teardown }) => {
+  plan(4)
+
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+  type Query {
+    add(x: Int, y: Int): Int
+  }
+  `
+
+  const resolvers = {
+    Query: {
+      async add (_, { x, y }) { throw new Error('kaboom') }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  /** Mocking cache.define to receive no onError
+    * Doing this to check the usage of onError passed in
+    * the definition of cache:
+    * createCache({ ... onError: onError.bind(null, 'Internal Error', 'async-cache-dedupe') })
+    * */
+  const dedupe = require('async-cache-dedupe')
+  const mockCache = mock('..', {
+    'async-cache-dedupe': {
+      createCache: (options) => {
+        const originalError = options.onError
+        options.onError = (error) => {
+          equal(error.message, 'kaboom')
+          originalError(error)
+        }
+        const created = dedupe.createCache(options)
+        const originalDefine = created.define.bind(created)
+        created.define = function (name, opts, func) {
+          opts.onError = null
+          return originalDefine(name, opts, func)
+        }
+        return created
+      }
+    }
+  })
+
+  app.register(mockCache, {
+    ttl: 1,
+    all: true,
+    onError: (type, name, error) => {
+      equal(type, 'Internal Error')
+      equal(name, 'async-cache-dedupe')
+      equal(error.message, 'kaboom')
+    }
+  })
+
+  await request({ app, query: '{ add(x: 1, y: 1) }' })
 })
