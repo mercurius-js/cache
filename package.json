@@ -1,11 +1,12 @@
 {
   "name": "mercurius-cache",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Cache the results of your GraphQL resolvers, for Mercurius",
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
     "test": "standard | snazzy && tap test/*test.js && tsd",
+    "redis": "docker run -p 6379:6379 --rm redis:5",
     "lint:fix": "standard --fix"
   },
   "repository": {
