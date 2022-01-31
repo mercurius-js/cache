@@ -39,7 +39,8 @@ module.exports = fp(async function (app, opts) {
   })
 
   function buildCache () {
-    cache = createCache({ ttl, storage })
+    // Default the first two parameters of onError(prefix, fieldName, err)
+    cache = createCache({ ttl, storage, onError: onError.bind(null, 'Internal Error', 'async-cache-dedupe') })
     report = createReport({ app, all, policy, logInterval, logReport })
   }
 }, {
@@ -111,6 +112,7 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
     onDedupe: report[name].onDedupe,
     onHit: report[name].onHit,
     onMiss: report[name].onMiss,
+    onError,
     ttl,
     storage,
     references,
@@ -161,8 +163,8 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
         result = await originalFieldResolver(self, arg, ctx, info)
       } else {
         // use cache to get the result
-        // note the cache function never throws error
-        result = await cache[name]({ self, arg, ctx, info })
+        // Ignore execptions, 'onError' is already in place
+        result = await cache[name]({ self, arg, ctx, info }).catch(noop)
       }
 
       if (invalidate) {
@@ -188,3 +190,5 @@ async function invalidation (invalidate, cache, name, self, arg, ctx, info, resu
     onError(err)
   }
 }
+
+function noop () { }
