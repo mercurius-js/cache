@@ -1381,3 +1381,99 @@ test('should call onError with Internal Error when mocked define receives no onE
 
   await request({ app, query: '{ add(x: 1, y: 1) }' })
 })
+
+test('references throws', async ({ fail, pass, plan, teardown, same }) => {
+  plan(1)
+
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      get (id: Int): String
+    }
+    type Mutation {
+      set (id: Int): String
+    }
+  `
+
+  const resolvers = {
+    Query: {
+      async get (_, { id }) {
+        return 'get ' + id
+      }
+    },
+    Mutation: {
+      async set (_, { id }) {
+        return 'set ' + id
+      }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  let miss = 0
+  app.register(cache, {
+    ttl: 100,
+    storage: { type: 'memory', options: { invalidation: true } },
+    onHit (type, name) {
+      fail()
+    },
+    onMiss (type, name) {
+      if (++miss === 2) { pass() }
+    },
+    policy: {
+      Query: {
+        get: {
+          references: async () => { throw new Error('kaboom') }
+        }
+      },
+      Mutation: {
+        set: {
+          invalidate: async () => ['gets']
+        }
+      }
+    }
+  })
+
+  const res = await app.inject({
+    method: 'POST',
+    url: '/graphql',
+    body: { query: '{ get(id: 11) }' }
+  })
+
+  same(res.json(), { data: { get: 'get 11' } })
+})
+
+test('policy without Query', async ({ teardown }) => {
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      add(x: Int, y: Int): Int
+      hello: String
+    }
+  `
+
+  const resolvers = {
+    Query: {
+      async add (_, { x, y }) {
+        return x + y
+      }
+    }
+  }
+
+  app.register(mercurius, {
+    schema,
+    resolvers
+  })
+
+  app.register(cache, {
+    ttl: 4242,
+    all: false,
+    policy: {}
+  })
+
+  await app.ready()
+})

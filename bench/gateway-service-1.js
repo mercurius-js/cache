@@ -17,14 +17,20 @@ const users = {
 }
 
 const schema = `
-type Query @extends {
-  me: User
-}
+  type Query @extends {
+    me: User
+  }
 
-type User @key(fields: "id") {
-  id: ID!
-  name: String!
-}`
+  type User @key(fields: "id") {
+    id: ID!
+    name: String!
+  }
+
+  type Mutation @extends {
+    createUser(name: String!): User
+    updateUser(id: ID!, name: String!): User
+  }
+`
 
 const resolvers = {
   Query: {
@@ -35,6 +41,24 @@ const resolvers = {
   User: {
     __resolveReference: (user, args, context, info) => {
       return users[user.id]
+    }
+  },
+  Mutation: {
+    createUser: (root, args, context, info) => {
+      const user = {
+        id: `u${Object.keys(users).length + 1}`,
+        name: args.name
+      }
+      users[user.id] = user
+      return user
+    },
+
+    updateUser: (root, args, context, info) => {
+      if (!users[args.id]) {
+        throw new Error('User not found')
+      }
+      users[args.id] = args
+      return args
     }
   }
 }
