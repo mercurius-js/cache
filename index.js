@@ -50,7 +50,7 @@ module.exports = fp(async function (app, opts) {
 
 function setupSchema (schema, policy, all, cache, skip, onDedupe, onHit, onMiss, onSkip, onError, report) {
   const schemaTypeMap = schema.getTypeMap()
-  let queryKeys = policy ? Object.keys(policy.Query) : []
+  let queryKeys = policy ? Object.keys(policy.Query || {}) : []
 
   for (const schemaType of Object.values(schemaTypeMap)) {
     const fieldPolicy = all || policy[schemaType]
@@ -141,6 +141,7 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
     try {
       // dont use cache on mutation and subscriptions
       if (info.operation && (info.operation.operation === 'mutation' || info.operation.operation === 'subscription')) {
+        // TODO if originalFieldResolver throws, we should not go into the catch
         result = await originalFieldResolver(self, arg, ctx, info)
       } else if (
         (skip && (await skip(self, arg, ctx, info))) ||
@@ -148,11 +149,16 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
       ) {
         // dont use cache on skip by policy or by general skip
         report[name].onSkip()
+        // TODO if originalFieldResolver throws, we should not go into the catch
         result = await originalFieldResolver(self, arg, ctx, info)
       } else {
         // use cache to get the result
         // Ignore execptions, 'onError' is already in place
-        result = await cache[name]({ self, arg, ctx, info }).catch(noop)
+        result = await cache[name]({ self, arg, ctx, info }).catch((err) => {
+          // TODO this should not be needed
+          err._onErrorCalled = true
+          throw err
+        })
       }
 
       if (invalidate) {
@@ -162,7 +168,12 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
         invalidation(invalidate, cache, name, self, arg, ctx, info, result, onError)
       }
     } catch (err) {
-      onError(err)
+      // TODO remove this logic, find a better way to handle errors
+      if (!err._onErrorCalled) {
+        onError(err)
+      } else {
+        delete err._onErrorCalled
+      }
       return originalFieldResolver(self, arg, ctx, info)
     }
 
@@ -178,5 +189,3 @@ async function invalidation (invalidate, cache, name, self, arg, ctx, info, resu
     onError(err)
   }
 }
-
-function noop () { }
