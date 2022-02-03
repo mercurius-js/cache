@@ -138,43 +138,23 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
 
   return async function (self, arg, ctx, info) {
     let result
-    try {
-      // dont use cache on mutation and subscriptions
-      if (info.operation && (info.operation.operation === 'mutation' || info.operation.operation === 'subscription')) {
-        // TODO if originalFieldResolver throws, we should not go into the catch
-        result = await originalFieldResolver(self, arg, ctx, info)
-      } else if (
-        (skip && (await skip(self, arg, ctx, info))) ||
-        (policy && policy.skip && (await policy.skip(self, arg, ctx, info)))
-      ) {
-        // dont use cache on skip by policy or by general skip
-        report[name].onSkip()
-        // TODO if originalFieldResolver throws, we should not go into the catch
-        result = await originalFieldResolver(self, arg, ctx, info)
-      } else {
-        // use cache to get the result
-        // Ignore execptions, 'onError' is already in place
-        result = await cache[name]({ self, arg, ctx, info }).catch((err) => {
-          // TODO this should not be needed
-          err._onErrorCalled = true
-          throw err
-        })
-      }
 
-      if (invalidate) {
-        // invalidate is async but no await, and never throws
-        // since the result is already got, either by cache or original resolver
-        // in case of error, onError is called in the invalidation function to avoid await
-        invalidation(invalidate, cache, name, self, arg, ctx, info, result, onError)
-      }
-    } catch (err) {
-      // TODO remove this logic, find a better way to handle errors
-      if (!err._onErrorCalled) {
-        onError(err)
-      } else {
-        delete err._onErrorCalled
-      }
-      return originalFieldResolver(self, arg, ctx, info)
+    // dont use cache on mutation and subscriptions
+    result = await getResultForMutationSubscription({ self, arg, ctx, info, originalFieldResolver, onError })
+
+    // dont use cache on skip by policy or by general skip
+    if (result === false) {
+      result = await getResultIfSkipDefined({ self, arg, ctx, info, skip, policy, name, report, originalFieldResolver, onError })
+    }
+
+    // use cache to get the result
+    if (result === false) {
+      result = await getResultFromCache({ self, arg, ctx, info, cache, name, originalFieldResolver })
+    }
+
+    if (invalidate) {
+      // Invalidates references and calls onError if fails
+      await invalidation(invalidate, cache, name, self, arg, ctx, info, result, onError)
     }
 
     return result
@@ -187,5 +167,49 @@ async function invalidation (invalidate, cache, name, self, arg, ctx, info, resu
     await cache.invalidate(name, references)
   } catch (err) {
     onError(err)
+  }
+}
+
+async function getResultForMutationSubscription ({ self, arg, ctx, info, originalFieldResolver, onError }) {
+  let result = false
+  if (info.operation && (info.operation.operation === 'mutation' || info.operation.operation === 'subscription')) {
+    try {
+      result = await originalFieldResolver(self, arg, ctx, info)
+    } catch (error) {
+      onError(error)
+      return null
+    }
+  }
+  return result
+}
+
+async function getResultIfSkipDefined ({ self, arg, ctx, info, skip, policy, name, report, originalFieldResolver, onError }) {
+  const result = false
+  let isSkipped = false
+  try {
+    if ((skip && (await skip(self, arg, ctx, info))) ||
+      (policy && policy.skip && (await policy.skip(self, arg, ctx, info)))) isSkipped = true
+  } catch (error) {
+    onError(error)
+    return await originalFieldResolver(self, arg, ctx, info)
+  }
+
+  if (isSkipped) {
+    try {
+      report[name].onSkip()
+      return await originalFieldResolver(self, arg, ctx, info)
+    } catch (error) {
+      onError(error)
+      return null
+    }
+  }
+  return result
+}
+
+async function getResultFromCache ({ self, arg, ctx, info, cache, name, originalFieldResolver }) {
+  try {
+    return await cache[name]({ self, arg, ctx, info })
+  } catch (error) {
+    return await originalFieldResolver(self, arg, ctx, info)
   }
 }

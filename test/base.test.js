@@ -1116,7 +1116,38 @@ test('should call onError if skip function throws an error', async ({ plan, tear
   same(await request({ app, query: '{ get(id: 11) }' }), { data: { get: 'get 11' } })
 })
 
-test('should call onError if resolver function throws an error', async ({ plan, equal, teardown }) => {
+test('should call onError if skip defined and resolver function throws an error', async ({ plan, teardown, equal, same }) => {
+  plan(3)
+
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      get (id: Int): String
+    }
+  `
+
+  const resolvers = {
+    Query: { async get (_, { id }) { throw new Error('kaboom') } }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+  app.register(cache, {
+    ttl: 1,
+    all: true,
+    skip: () => { return true },
+    onError (type, name, error) {
+      equal(type, 'Query')
+      equal(name, 'get')
+      equal(error.message, 'kaboom')
+    }
+  })
+
+  await request({ app, query: '{ get(id: 11) }' })
+})
+
+test('should call onError if Query resolver function throws an error', async ({ plan, equal, teardown }) => {
   plan(3)
   const app = fastify()
   teardown(app.close.bind(app))
@@ -1146,6 +1177,51 @@ test('should call onError if resolver function throws an error', async ({ plan, 
   })
 
   await request({ app, query: '{ add(x: 1, y: 1) }' })
+})
+
+test('onError should be called if Mutation resolver throws', async ({ equal, same, teardown, fail, plan }) => {
+  const app = fastify()
+  plan(3)
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Mutation {
+      add(a: Int, b: Int): Int
+    }
+    type Query {
+      hello: String
+    }
+  `
+
+  const resolvers = {
+    Mutation: {
+      add: (_, { a, b }) => { throw new Error('kaboom') }
+    }
+  }
+
+  app.register(mercurius, {
+    schema,
+    resolvers
+  })
+
+  app.register(cache, {
+    all: true,
+    onError (type, name, error) {
+      equal(type, 'Mutation')
+      equal(name, 'add')
+      equal(error.message, 'kaboom')
+    }
+  })
+
+  const query = 'mutation { add(a: 11 b: 19) }'
+
+  await app.inject({
+    method: 'POST',
+    url: '/graphql',
+    body: {
+      query
+    }
+  })
 })
 
 test('should call onError if invalidation function throws an error', async ({ equal, plan, teardown }) => {
