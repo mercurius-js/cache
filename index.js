@@ -140,7 +140,7 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
     let result
 
     // dont use cache on mutation and subscriptions
-    result = await getResultForMutationSubscription({ self, arg, ctx, info, originalFieldResolver, onError })
+    result = await getResultForMutationSubscription({ self, arg, ctx, info, originalFieldResolver })
 
     // dont use cache on skip by policy or by general skip
     if (result === false) {
@@ -170,15 +170,10 @@ async function invalidation (invalidate, cache, name, self, arg, ctx, info, resu
   }
 }
 
-async function getResultForMutationSubscription ({ self, arg, ctx, info, originalFieldResolver, onError }) {
+async function getResultForMutationSubscription ({ self, arg, ctx, info, originalFieldResolver }) {
   let result = false
   if (info.operation && (info.operation.operation === 'mutation' || info.operation.operation === 'subscription')) {
-    try {
-      result = await originalFieldResolver(self, arg, ctx, info)
-    } catch (error) {
-      onError(error)
-      return null
-    }
+    result = await originalFieldResolver(self, arg, ctx, info)
   }
   return result
 }
@@ -195,13 +190,8 @@ async function getResultIfSkipDefined ({ self, arg, ctx, info, skip, policy, nam
   }
 
   if (isSkipped) {
-    try {
-      report[name].onSkip()
-      return await originalFieldResolver(self, arg, ctx, info)
-    } catch (error) {
-      onError(error)
-      return null
-    }
+    report[name].onSkip()
+    return await originalFieldResolver(self, arg, ctx, info)
   }
   return result
 }

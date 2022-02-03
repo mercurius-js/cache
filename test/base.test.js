@@ -1116,8 +1116,8 @@ test('should call onError if skip function throws an error', async ({ plan, tear
   same(await request({ app, query: '{ get(id: 11) }' }), { data: { get: 'get 11' } })
 })
 
-test('should call onError if skip defined and resolver function throws an error', async ({ plan, teardown, equal, same }) => {
-  plan(3)
+test('should not call onError if skip defined and resolver function throws an error', async ({ plan, teardown, fail, same }) => {
+  plan(1)
 
   const app = fastify()
   teardown(app.close.bind(app))
@@ -1137,14 +1137,16 @@ test('should call onError if skip defined and resolver function throws an error'
     ttl: 1,
     all: true,
     skip: () => { return true },
-    onError (type, name, error) {
-      equal(type, 'Query')
-      equal(name, 'get')
-      equal(error.message, 'kaboom')
-    }
+    onError: () => fail()
   })
 
-  await request({ app, query: '{ get(id: 11) }' })
+  const res = await app.inject({
+    method: 'POST',
+    url: '/graphql',
+    body: { query: '{ get(id: 11) }' }
+  })
+
+  same(res.json(), { data: { get: null }, errors: [{ message: 'kaboom', locations: [{ line: 1, column: 3 }], path: ['get'] }] })
 })
 
 test('should call onError if Query resolver function throws an error', async ({ plan, equal, teardown }) => {
@@ -1179,9 +1181,9 @@ test('should call onError if Query resolver function throws an error', async ({ 
   await request({ app, query: '{ add(x: 1, y: 1) }' })
 })
 
-test('onError should be called if Mutation resolver throws', async ({ equal, same, teardown, fail, plan }) => {
+test('should not call onError if Mutation resolver throws', async ({ same, teardown, fail, plan }) => {
   const app = fastify()
-  plan(3)
+  plan(1)
   teardown(app.close.bind(app))
 
   const schema = `
@@ -1206,22 +1208,19 @@ test('onError should be called if Mutation resolver throws', async ({ equal, sam
 
   app.register(cache, {
     all: true,
-    onError (type, name, error) {
-      equal(type, 'Mutation')
-      equal(name, 'add')
-      equal(error.message, 'kaboom')
-    }
+    onError: () => fail()
   })
 
   const query = 'mutation { add(a: 11 b: 19) }'
 
-  await app.inject({
+  const res = await app.inject({
     method: 'POST',
     url: '/graphql',
     body: {
       query
     }
   })
+  same(res.json(), { data: { add: null }, errors: [{ message: 'kaboom', locations: [{ line: 1, column: 12 }], path: ['add'] }] })
 })
 
 test('should call onError if invalidation function throws an error', async ({ equal, plan, teardown }) => {
