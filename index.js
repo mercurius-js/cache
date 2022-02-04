@@ -138,17 +138,18 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
 
   return async function (self, arg, ctx, info) {
     let result
+    let resolved
 
     // dont use cache on mutation and subscriptions
-    result = await getResultForMutationSubscription({ self, arg, ctx, info, originalFieldResolver })
+    [result, resolved] = await getResultForMutationSubscription({ self, arg, ctx, info, originalFieldResolver })
 
     // dont use cache on skip by policy or by general skip
-    if (result === false) {
-      result = await getResultIfSkipDefined({ self, arg, ctx, info, skip, policy, name, report, originalFieldResolver, onError })
+    if (!resolved) {
+      [result, resolved] = await getResultIfSkipDefined({ self, arg, ctx, info, skip, policy, name, report, originalFieldResolver, onError })
     }
 
     // use cache to get the result
-    if (result === false) {
+    if (!resolved) {
       result = await getResultFromCache({ self, arg, ctx, info, cache, name, originalFieldResolver })
     }
 
@@ -171,29 +172,34 @@ async function invalidation (invalidate, cache, name, self, arg, ctx, info, resu
 }
 
 async function getResultForMutationSubscription ({ self, arg, ctx, info, originalFieldResolver }) {
-  let result = false
+  const resolved = false
+  let result = null
   if (info.operation && (info.operation.operation === 'mutation' || info.operation.operation === 'subscription')) {
     result = await originalFieldResolver(self, arg, ctx, info)
+    return [result, true]
   }
-  return result
+  return [result, resolved]
 }
 
 async function getResultIfSkipDefined ({ self, arg, ctx, info, skip, policy, name, report, originalFieldResolver, onError }) {
-  const result = false
+  const resolved = false
+  let result = null
   let isSkipped = false
   try {
-    if ((skip && (await skip(self, arg, ctx, info))) ||
-      (policy && policy.skip && (await policy.skip(self, arg, ctx, info)))) isSkipped = true
+    isSkipped = ((skip && (await skip(self, arg, ctx, info))) ||
+      (policy && policy.skip && (await policy.skip(self, arg, ctx, info))))
   } catch (error) {
     onError(error)
-    return await originalFieldResolver(self, arg, ctx, info)
+    result = await originalFieldResolver(self, arg, ctx, info)
+    return [result, true]
   }
 
   if (isSkipped) {
     report[name].onSkip()
-    return await originalFieldResolver(self, arg, ctx, info)
+    result = await originalFieldResolver(self, arg, ctx, info)
+    return [result, true]
   }
-  return result
+  return [result, resolved]
 }
 
 async function getResultFromCache ({ self, arg, ctx, info, cache, name, originalFieldResolver }) {
