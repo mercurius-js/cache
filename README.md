@@ -259,6 +259,32 @@ Example
   }
 ```
 
+- **policy~__options**
+
+should be used in case of conflicts with nested fields with the same name as policy fields (ttl, skip, storage....).  
+Example
+
+```js
+policy: {
+	Query: {
+	  welcome: {
+	    // no __options key present, so policy options are considered as it is
+	    ttl: 6
+	  },
+	  hello: {
+	    // since "hello" query has a ttl property
+	    __options: {
+	      ttl: 6
+	    },
+	    ttl: {
+	      // here we can use both __options or list policy options
+	      skip: () { /* .. */ }
+	    }
+	  }
+	}
+}
+```
+
 - **skip**
 
 skip cache use for a specific condition, `onSkip` will be triggered.  

@@ -122,6 +122,28 @@ test('should get default storage.options.log as app.log', async (t) => {
   t.equal(storage.options.log, 'the-logger')
 })
 
+test('should not throw error when "__options" is used with valid parameters', async (t) => {
+  const options = {
+    policy: {
+      Query: {
+        a: {
+          __options: {
+            ttl: 2,
+            storage: { type: 'redis', options: { client: {} } },
+            extendKey: () => {},
+            skip: () => {},
+            invalidate: () => {},
+            references: () => {}
+          }
+        }
+      }
+    }
+  }
+
+  const app = { log: 'the-logger' }
+  t.doesNotThrow(() => validateOpts(app, options))
+})
+
 const cases = [
   {
     title: 'should get error using all as string',

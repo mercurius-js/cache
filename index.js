@@ -61,7 +61,7 @@ function setupSchema (schema, policy, all, cache, skip, onDedupe, onHit, onMiss,
     // Handle fields on schema type
     if (typeof schemaType.getFields === 'function') {
       for (const [fieldName, field] of Object.entries(schemaType.getFields())) {
-        const policy = fieldPolicy[fieldName]
+        const policy = getPolicyOptions(fieldPolicy, fieldName)
         if (all || policy) {
           // validate schema vs query values
           queryKeys = queryKeys.filter(key => key !== fieldName)
@@ -75,6 +75,18 @@ function setupSchema (schema, policy, all, cache, skip, onDedupe, onHit, onMiss,
     }
   }
   if (queryKeys.length) { throw new Error(`Query does not match schema: ${queryKeys}`) }
+}
+
+function getPolicyOptions (fieldPolicy, fieldName) {
+  if (!fieldPolicy[fieldName]) {
+    return
+  }
+
+  if (fieldPolicy[fieldName].__options) {
+    return fieldPolicy[fieldName].__options
+  }
+
+  return fieldPolicy[fieldName]
 }
 
 function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, policy, skip, onDedupe, onHit, onMiss, onSkip, onError, report) {
