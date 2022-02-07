@@ -35,11 +35,18 @@ const posts = {
 const schema = `
 type Post @key(fields: "pid") {
   pid: ID!
+  title: String
+  content: String
   author: User
 }
 
 extend type Query {
   topPosts(count: Int): [Post]
+  getPost(pid: ID!): Post
+}
+
+extend type Mutation {
+  updatePostTitle(pid: ID!, title: String!): Post
 }
 
 type User @key(fields: "id") @extends {
@@ -65,7 +72,20 @@ const resolvers = {
     }
   },
   Query: {
-    topPosts: (root, { count = 2 }) => Object.values(posts).slice(0, count)
+    topPosts: (root, { count = 2 }) => Object.values(posts).slice(0, count),
+    getPost: (root, { pid }) => {
+      console.log(pid, posts[pid])
+      return posts[pid]
+    }
+  },
+  Mutation: {
+    updatePostTitle: (root, args, context, info) => {
+      if (!posts[args.pid]) {
+        throw new Error('Post not found')
+      }
+      posts[args.pid].title = args.title
+      return posts[args.pid]
+    }
   }
 }
 

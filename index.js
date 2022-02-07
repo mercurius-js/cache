@@ -50,7 +50,7 @@ module.exports = fp(async function (app, opts) {
 
 function setupSchema (schema, policy, all, cache, skip, onDedupe, onHit, onMiss, onSkip, onError, report) {
   const schemaTypeMap = schema.getTypeMap()
-  let queryKeys = policy ? Object.keys(policy.Query) : []
+  let queryKeys = policy ? Object.keys(policy.Query || {}) : []
 
   for (const schemaType of Object.values(schemaTypeMap)) {
     const fieldPolicy = all || policy[schemaType]
@@ -150,32 +150,24 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
 
   return async function (self, arg, ctx, info) {
     let result
-    try {
-      // dont use cache on mutation and subscriptions
-      if (info.operation && (info.operation.operation === 'mutation' || info.operation.operation === 'subscription')) {
-        result = await originalFieldResolver(self, arg, ctx, info)
-      } else if (
-        (skip && (await skip(self, arg, ctx, info))) ||
-        (policy && policy.skip && (await policy.skip(self, arg, ctx, info)))
-      ) {
-        // dont use cache on skip by policy or by general skip
-        report[name].onSkip()
-        result = await originalFieldResolver(self, arg, ctx, info)
-      } else {
-        // use cache to get the result
-        // Ignore execptions, 'onError' is already in place
-        result = await cache[name]({ self, arg, ctx, info }).catch(noop)
-      }
+    let resolved
 
-      if (invalidate) {
-        // invalidate is async but no await, and never throws
-        // since the result is already got, either by cache or original resolver
-        // in case of error, onError is called in the invalidation function to avoid await
-        invalidation(invalidate, cache, name, self, arg, ctx, info, result, onError)
-      }
-    } catch (err) {
-      onError(err)
-      return originalFieldResolver(self, arg, ctx, info)
+    // dont use cache on mutation and subscriptions
+    [result, resolved] = await getResultForMutationSubscription({ self, arg, ctx, info, originalFieldResolver })
+
+    // dont use cache on skip by policy or by general skip
+    if (!resolved) {
+      [result, resolved] = await getResultIfSkipDefined({ self, arg, ctx, info, skip, policy, name, report, originalFieldResolver, onError })
+    }
+
+    // use cache to get the result
+    if (!resolved) {
+      result = await getResultFromCache({ self, arg, ctx, info, cache, name, originalFieldResolver })
+    }
+
+    if (invalidate) {
+      // Invalidates references and calls onError if fails
+      await invalidation(invalidate, cache, name, self, arg, ctx, info, result, onError)
     }
 
     return result
@@ -191,4 +183,41 @@ async function invalidation (invalidate, cache, name, self, arg, ctx, info, resu
   }
 }
 
-function noop () { }
+async function getResultForMutationSubscription ({ self, arg, ctx, info, originalFieldResolver }) {
+  const resolved = false
+  let result = null
+  if (info.operation && (info.operation.operation === 'mutation' || info.operation.operation === 'subscription')) {
+    result = await originalFieldResolver(self, arg, ctx, info)
+    return [result, true]
+  }
+  return [result, resolved]
+}
+
+async function getResultIfSkipDefined ({ self, arg, ctx, info, skip, policy, name, report, originalFieldResolver, onError }) {
+  const resolved = false
+  let result = null
+  let isSkipped = false
+  try {
+    isSkipped = ((skip && (await skip(self, arg, ctx, info))) ||
+      (policy && policy.skip && (await policy.skip(self, arg, ctx, info))))
+  } catch (error) {
+    onError(error)
+    result = await originalFieldResolver(self, arg, ctx, info)
+    return [result, true]
+  }
+
+  if (isSkipped) {
+    report[name].onSkip()
+    result = await originalFieldResolver(self, arg, ctx, info)
+    return [result, true]
+  }
+  return [result, resolved]
+}
+
+async function getResultFromCache ({ self, arg, ctx, info, cache, name, originalFieldResolver }) {
+  try {
+    return await cache[name]({ self, arg, ctx, info })
+  } catch (error) {
+    return await originalFieldResolver(self, arg, ctx, info)
+  }
+}

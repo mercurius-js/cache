@@ -1116,7 +1116,40 @@ test('should call onError if skip function throws an error', async ({ plan, tear
   same(await request({ app, query: '{ get(id: 11) }' }), { data: { get: 'get 11' } })
 })
 
-test('should call onError if resolver function throws an error', async ({ plan, equal, teardown }) => {
+test('should not call onError if skip defined and resolver function throws an error', async ({ plan, teardown, fail, same }) => {
+  plan(1)
+
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      get (id: Int): String
+    }
+  `
+
+  const resolvers = {
+    Query: { async get (_, { id }) { throw new Error('kaboom') } }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+  app.register(cache, {
+    ttl: 1,
+    all: true,
+    skip: () => { return true },
+    onError: () => fail()
+  })
+
+  const res = await app.inject({
+    method: 'POST',
+    url: '/graphql',
+    body: { query: '{ get(id: 11) }' }
+  })
+
+  same(res.json(), { data: { get: null }, errors: [{ message: 'kaboom', locations: [{ line: 1, column: 3 }], path: ['get'] }] })
+})
+
+test('should call onError if Query resolver function throws an error', async ({ plan, equal, teardown }) => {
   plan(3)
   const app = fastify()
   teardown(app.close.bind(app))
@@ -1146,6 +1179,48 @@ test('should call onError if resolver function throws an error', async ({ plan, 
   })
 
   await request({ app, query: '{ add(x: 1, y: 1) }' })
+})
+
+test('should not call onError if Mutation resolver throws', async ({ same, teardown, fail, plan }) => {
+  const app = fastify()
+  plan(1)
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Mutation {
+      add(a: Int, b: Int): Int
+    }
+    type Query {
+      hello: String
+    }
+  `
+
+  const resolvers = {
+    Mutation: {
+      add: (_, { a, b }) => { throw new Error('kaboom') }
+    }
+  }
+
+  app.register(mercurius, {
+    schema,
+    resolvers
+  })
+
+  app.register(cache, {
+    all: true,
+    onError: () => fail()
+  })
+
+  const query = 'mutation { add(a: 11 b: 19) }'
+
+  const res = await app.inject({
+    method: 'POST',
+    url: '/graphql',
+    body: {
+      query
+    }
+  })
+  same(res.json(), { data: { add: null }, errors: [{ message: 'kaboom', locations: [{ line: 1, column: 12 }], path: ['add'] }] })
 })
 
 test('should call onError if invalidation function throws an error', async ({ equal, plan, teardown }) => {
@@ -1380,6 +1455,102 @@ test('should call onError with Internal Error when mocked define receives no onE
   })
 
   await request({ app, query: '{ add(x: 1, y: 1) }' })
+})
+
+test('references throws', async ({ fail, pass, plan, teardown, same }) => {
+  plan(1)
+
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      get (id: Int): String
+    }
+    type Mutation {
+      set (id: Int): String
+    }
+  `
+
+  const resolvers = {
+    Query: {
+      async get (_, { id }) {
+        return 'get ' + id
+      }
+    },
+    Mutation: {
+      async set (_, { id }) {
+        return 'set ' + id
+      }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  let miss = 0
+  app.register(cache, {
+    ttl: 100,
+    storage: { type: 'memory', options: { invalidation: true } },
+    onHit (type, name) {
+      fail()
+    },
+    onMiss (type, name) {
+      if (++miss === 2) { pass() }
+    },
+    policy: {
+      Query: {
+        get: {
+          references: async () => { throw new Error('kaboom') }
+        }
+      },
+      Mutation: {
+        set: {
+          invalidate: async () => ['gets']
+        }
+      }
+    }
+  })
+
+  const res = await app.inject({
+    method: 'POST',
+    url: '/graphql',
+    body: { query: '{ get(id: 11) }' }
+  })
+
+  same(res.json(), { data: { get: 'get 11' } })
+})
+
+test('policy without Query', async ({ teardown }) => {
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      add(x: Int, y: Int): Int
+      hello: String
+    }
+  `
+
+  const resolvers = {
+    Query: {
+      async add (_, { x, y }) {
+        return x + y
+      }
+    }
+  }
+
+  app.register(mercurius, {
+    schema,
+    resolvers
+  })
+
+  app.register(cache, {
+    ttl: 4242,
+    all: false,
+    policy: {}
+  })
+
+  await app.ready()
 })
 
 test('cache nested resolvers with __options', async ({ same, pass, plan, teardown }) => {
