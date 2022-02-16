@@ -10,20 +10,20 @@ export interface PolicyFieldOptions {
 }
 
 export type PolicyFieldName = string;
-export type PolicyField = Record<PolicyFieldName, PolicyFieldOptions | object>;
+export type PolicyField = Record<PolicyFieldName, PolicyFieldOptions | object | boolean>;
 export type PolicyName = string;
 export type MercuriusCachePolicy = Record<PolicyName, PolicyField>;
 
 export interface MercuriusCacheStorageMemoryOptions {
   size: number;
   log?: object;
-  invalidate?: boolean;
+  invalidation?: boolean;
 }
 
 export interface MercuriusCacheStorageRedisOptions {
   client: object;
   log?: object;
-  invalidate?: boolean | { invalidate: boolean; referencesTTL?: number };
+  invalidation?: boolean | { invalidate: boolean; referencesTTL?: number };
 }
 
 export enum MercuriusCacheStorageType {

@@ -73,10 +73,10 @@ test('should get default storage.options, with logger', async (t) => {
   t.same(storage.options, { log: 'the-logger' })
 })
 
-test('should get default storage.options.invalidate.referencesTTL as max of policies and main ttl / invalidation as boolean true', async (t) => {
+test('should get default storage.options.invalidation.referencesTTL as max of policies and main ttl / invalidation as boolean true', async (t) => {
   const options = {
     ttl: 1,
-    storage: { type: 'redis', options: { client: {}, invalidate: true } },
+    storage: { type: 'redis', options: { client: {}, invalidation: true } },
     policy: {
       Query: {
         a: { ttl: 2, storage: { type: 'redis', options: { client: {} } } },
@@ -89,13 +89,13 @@ test('should get default storage.options.invalidate.referencesTTL as max of poli
   const app = { log: 'the-logger' }
   const { storage } = validateOpts(app, options)
 
-  t.equal(storage.options.invalidate.referencesTTL, 6)
+  t.equal(storage.options.invalidation.referencesTTL, 6)
 })
 
-test('should get default storage.options.invalidate.referencesTTL as max of policies and main ttl / invalidation as empty object', async (t) => {
+test('should get default storage.options.invalidation.referencesTTL as max of policies and main ttl / invalidation as empty object', async (t) => {
   const options = {
     ttl: 1,
-    storage: { type: 'redis', options: { client: {}, invalidate: {} } },
+    storage: { type: 'redis', options: { client: {}, invalidation: {} } },
     policy: {
       Query: {
         a: { ttl: 2, storage: { type: 'redis', options: { client: {} } } },
@@ -108,13 +108,13 @@ test('should get default storage.options.invalidate.referencesTTL as max of poli
   const app = { log: 'the-logger' }
   const { storage } = validateOpts(app, options)
 
-  t.equal(storage.options.invalidate.referencesTTL, 6)
+  t.equal(storage.options.invalidation.referencesTTL, 6)
 })
 
 test('should get default storage.options.log as app.log', async (t) => {
   const options = {
     ttl: 1,
-    storage: { type: 'redis', options: { client: {}, invalidate: true } },
+    storage: { type: 'redis', options: { client: {}, invalidation: true } },
     all: true
   }
   const app = { log: 'the-logger' }
