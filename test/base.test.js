@@ -169,32 +169,12 @@ test('No TTL, do not use cache', async ({ equal, same, pass, plan, teardown }) =
   }
 })
 
-test('cache a nested resolver with loaders', async ({ same, pass, teardown }) => {
-  pass(4)
+test('cache a nested resolver with loaders', async ({ same, teardown }) => {
   const app = fastify()
   teardown(app.close.bind(app))
 
-  const dogs = [{
-    name: 'Max'
-  }, {
-    name: 'Charlie'
-  }, {
-    name: 'Buddy'
-  }, {
-    name: 'Max'
-  }]
-
-  const owners = {
-    Max: {
-      name: 'Jennifer'
-    },
-    Charlie: {
-      name: 'Sarah'
-    },
-    Buddy: {
-      name: 'Tracy'
-    }
-  }
+  const dogs = [{ name: 'Max' }, { name: 'Charlie' }, { name: 'Buddy' }, { name: 'Max' }]
+  const owners = { Max: { name: 'Jennifer' }, Charlie: { name: 'Sarah' }, Buddy: { name: 'Tracy' } }
 
   const schema = `
     type Human {
@@ -213,19 +193,13 @@ test('cache a nested resolver with loaders', async ({ same, pass, teardown }) =>
 
   const resolvers = {
     Query: {
-      dogs (_, params, { reply }) {
-        pass('call Query.dogs')
-        return dogs
-      }
+      dogs (_, params, { reply }) { return dogs }
     }
   }
 
   const loaders = {
     Dog: {
-      async owner (queries) {
-        pass('call Dog.owner')
-        return queries.map(({ obj }) => owners[obj.name])
-      }
+      async owner (queries) { return queries.map(({ obj }) => owners[obj.name]) }
     }
   }
 
@@ -235,7 +209,17 @@ test('cache a nested resolver with loaders', async ({ same, pass, teardown }) =>
     loaders
   })
 
+  const hits = { Query: 0, Dog: 0 }
+  const misses = { Query: 0, Dog: 0 }
+
   app.register(cache, {
+    ttl: 10,
+    onHit (type, name) {
+      hits[type]++
+    },
+    onMiss (type, name) {
+      misses[type]++
+    },
     policy: {
       Dog: {
         owner: true
@@ -246,42 +230,14 @@ test('cache a nested resolver with loaders', async ({ same, pass, teardown }) =>
     }
   })
 
-  const res = await app.inject({
-    method: 'POST',
-    url: '/graphql',
-    body: {
-      query: `{
-        dogs {
-          owner {
-            name
-          }
-        }
-      }`
-    }
-  })
+  same(await request({ app, query: '{ dogs { owner { name } } }' }),
+    { data: { dogs: [{ owner: { name: 'Jennifer' } }, { owner: { name: 'Sarah' } }, { owner: { name: 'Tracy' } }, { owner: { name: 'Jennifer' } }] } })
 
-  same(res.json(),
-    { data: { dogs: [{ owner: { name: 'Jennifer' } }, { owner: { name: 'Sarah' } }, { owner: { name: 'Tracy' } }, { owner: { name: 'Jennifer' } }] } }
-  )
+  same(await request({ app, query: '{ dogs { owner { name } } }' }),
+    { data: { dogs: [{ owner: { name: 'Jennifer' } }, { owner: { name: 'Sarah' } }, { owner: { name: 'Tracy' } }, { owner: { name: 'Jennifer' } }] } })
 
-  const res2 = await app.inject({
-    method: 'POST',
-    url: '/graphql',
-    body: {
-      query: `{
-        dogs {
-          name
-          owner {
-            name
-          }
-        }
-      }`
-    }
-  })
-
-  same(res2.json(),
-    { data: { dogs: [{ name: 'Max', owner: { name: 'Jennifer' } }, { name: 'Charlie', owner: { name: 'Sarah' } }, { name: 'Buddy', owner: { name: 'Tracy' } }, { name: 'Max', owner: { name: 'Jennifer' } }] } }
-  )
+  same(misses, { Query: 1, Dog: 3 })
+  same(hits, { Query: 1, Dog: 3 })
 })
 
 test('clear the cache', async ({ equal, same, pass, plan, teardown }) => {
@@ -794,22 +750,15 @@ test('Unmatched schema for Query', async ({ rejects, teardown }) => {
     }
   })
 
-  await Promise.all([
-    query(),
-    query()
-  ])
+  const query = '{ add(x: 2, y: 2) }'
 
-  async function query () {
-    const query = '{ add(x: 2, y: 2) }'
-
-    await rejects(app.inject({
-      method: 'POST',
-      url: '/graphql',
-      body: {
-        query
-      }
-    }), 'Query does not match schema: foo')
-  }
+  await rejects(app.inject({
+    method: 'POST',
+    url: '/graphql',
+    body: {
+      query
+    }
+  }), 'policies does not match schema: Query.foo')
 })
 
 test('use references and invalidation', async ({ fail, pass, plan, teardown }) => {

@@ -106,3 +106,4 @@ dist
 .clinic
 
 .vscode
+docker-compose.yml
