@@ -50,10 +50,16 @@ module.exports = fp(async function (app, opts) {
 
 function setupSchema (schema, policy, all, cache, skip, onDedupe, onHit, onMiss, onSkip, onError, report) {
   const schemaTypeMap = schema.getTypeMap()
-  let queryKeys = policy ? Object.keys(policy.Query || {}) : []
+  // validate policies vs schema
+  const policies = !all && policy
+    ? Object.keys(policy).reduce((o, key) => {
+        o.push(...Object.keys(policy[key]).map(fieldName => `${key}.${fieldName}`))
+        return o
+      }, [])
+    : []
 
   for (const schemaType of Object.values(schemaTypeMap)) {
-    const fieldPolicy = all || policy[schemaType]
+    const fieldPolicy = all || policy[schemaType.name]
     if (!fieldPolicy) {
       continue
     }
@@ -63,18 +69,33 @@ function setupSchema (schema, policy, all, cache, skip, onDedupe, onHit, onMiss,
       for (const [fieldName, field] of Object.entries(schemaType.getFields())) {
         const policy = getPolicyOptions(fieldPolicy, fieldName)
         if (all || policy) {
-          // validate schema vs query values
-          queryKeys = queryKeys.filter(key => key !== fieldName)
           // Override resolvers for caching purposes
           if (typeof field.resolve === 'function') {
             const originalFieldResolver = field.resolve
-            field.resolve = makeCachedResolver(schemaType.toString(), fieldName, cache, originalFieldResolver, policy, skip, onDedupe, onHit, onMiss, onSkip, onError, report)
+            if (!all) {
+              policies.splice(policies.indexOf(`${schemaType.name}.${fieldName}`), 1)
+            }
+            field.resolve = makeCachedResolver(schemaType.name, fieldName, cache, originalFieldResolver, policy, skip, onDedupe, onHit, onMiss, onSkip, onError, report)
           }
         }
       }
     }
+
+    if (typeof schemaType.resolveReference === 'function') {
+      const resolver = '__resolveReference'
+      const policy = getPolicyOptions(fieldPolicy, '__resolveReference')
+      if (policy) {
+        // Override reference resolver for caching purposes
+        const originalResolver = schemaType.resolveReference
+        policies.splice(policies.indexOf(`${schemaType.name}.${resolver}`), 1)
+        schemaType.resolveReference = makeCachedResolver(schemaType.name, resolver, cache, originalResolver, policy, skip, onDedupe, onHit, onMiss, onSkip, onError, report)
+      }
+    }
   }
-  if (queryKeys.length) { throw new Error(`Query does not match schema: ${queryKeys}`) }
+
+  if (!all && policies.length) {
+    throw new Error(`policies does not match schema: ${policies.join(', ')}`)
+  }
 }
 
 function getPolicyOptions (fieldPolicy, fieldName) {
@@ -128,7 +149,11 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
           continue
         }
         for (let j = 0; j < node.selectionSet.selections.length; j++) {
-          fields.push(node.selectionSet.selections[j].name.value)
+          if (node.selectionSet.selections[j].kind === 'InlineFragment') {
+            fields.push(...node.selectionSet.selections[j].selectionSet.selections.map(s => s.name.value))
+          } else { // kind = 'Field'
+            fields.push(node.selectionSet.selections[j].name.value)
+          }
         }
       }
       fields.sort()

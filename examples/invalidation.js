@@ -55,7 +55,7 @@ app.register(mercurius, {
 app.register(cache, {
   ttl: 10,
   storage: {
-    type: 'memory',
+    type: 'redis',
     options: { client: app.redis, invalidation: true }
   },
   onHit (type, fieldName) {
