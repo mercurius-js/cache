@@ -1615,3 +1615,51 @@ test('cache nested resolvers with __options', async ({ same, pass, plan, teardow
     { data: { dogs: [{ name: 'Max', owner: { name: 'Jennifer' } }, { name: 'Charlie', owner: { name: 'Sarah' } }, { name: 'Buddy', owner: { name: 'Tracy' } }, { name: 'Max', owner: { name: 'Jennifer' } }] } }
   )
 })
+
+test('should be able to clear pragmatically the cache', async (t) => {
+  const app = fastify()
+  t.teardown(async () => {
+    await app.close()
+  })
+
+  const resolvers = {
+    Query: {
+      async echo (_, { value }) {
+        return value
+      }
+    }
+  }
+
+  app.register(mercurius, {
+    schema: `
+      type Query {
+        echo (value: String) : String
+      }
+    `,
+    resolvers
+  })
+
+  let misses = 0
+  await app.register(cache, {
+    ttl: 999,
+    policy: {
+      Query: {
+        echo: true
+      }
+    },
+    onHit (type, name) {
+      t.fail('should never use the cache')
+    },
+    onMiss (type, name) {
+      misses++
+    }
+  })
+
+  t.same(await request({ app, query: '{ echo (value: "Alpha") }' }), { data: { echo: 'Alpha' } })
+
+  await app.graphql.cache.clear()
+
+  t.same(await request({ app, query: '{ echo (value: "Alpha") }' }), { data: { echo: 'Alpha' } })
+
+  t.equal(misses, 2)
+})
