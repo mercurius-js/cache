@@ -404,6 +404,27 @@ Example
 }
 ```
 
+## Methods
+
+- **clear**
+
+`clear` method allows to pragmatically clear the cache entries, for example
+
+```js
+const app = fastify()
+
+await app.register(cache, {
+  ttl: 60,
+  policy: { 
+    // ...
+  }
+})
+
+// ...
+
+await app.graphql.cache.clear()
+```
+
 ## Invalidation
 
 Along with `time to live` invalidation of the cache entries, we can use invalidation by keys.  
