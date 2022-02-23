@@ -266,6 +266,16 @@ const cases = [
     title: 'should get error using policy.storage.options not an object',
     options: { policy: { Query: { add: { storage: { type: 'memory', options: 'not an object' } } } } },
     expect: /policy 'Query.add' storage options must be an object/
+  },
+  {
+    title: 'should get error using policy.key not a function',
+    options: { policy: { Query: { add: { key: 'not a function' } } } },
+    expect: /policy 'Query.add' key must be a function/
+  },
+  {
+    title: 'should get error using policy.key along with policy.extendKey',
+    options: { policy: { Query: { add: { key: () => {}, extendKey: () => {} } } } },
+    expect: /policy 'Query.add' key and extendKey are exclusive/
   }
 ]
 

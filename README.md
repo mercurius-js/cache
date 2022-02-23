@@ -199,6 +199,12 @@ Example
   }
 ```
 
+- **policy~key**
+
+TODO
+
+To be performant, it must return a string, otherwise the result will be stringified and this operation is very slow.
+
 - **policy~extendKey**
 
 extend the key to cache responses by different requests, for example, to enable custom cache per user.  
