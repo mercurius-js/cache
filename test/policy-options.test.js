@@ -329,7 +329,7 @@ test('custom key', async t => {
     app.register(mercurius, { schema, resolvers })
 
     app.register(cache, {
-      ttl: 9,
+      ttl: 999,
       storage: { type: 'redis', options: { client: redisClient } },
       policy: {
         Query: {
@@ -355,16 +355,16 @@ test('custom key', async t => {
     t.teardown(app.close.bind(app))
 
     const schema = `
-  type Query {
-    getUser (id: ID!): User
-    getUsers (name: String, lastName: String): [User]
-  }
+      type Query {
+        getUser (id: ID!): User
+        getUsers (name: String, lastName: String): [User]
+      }
 
-  type User {
-    id: ID!
-    name: String 
-    lastName: String
-  }
+      type User {
+        id: ID!
+        name: String 
+        lastName: String
+      }
 `
 
     const users = {
@@ -394,7 +394,7 @@ test('custom key', async t => {
 
     const hits = { getUser: 0, getUsers: 0 }
     app.register(cache, {
-      ttl: 3,
+      ttl: 999,
       storage: {
         type: 'redis',
         options: { client: redisClient }
@@ -502,7 +502,7 @@ test('custom key', async t => {
 
     let hits = 0
     app.register(cache, {
-      ttl: 3,
+      ttl: 999,
       storage: {
         type: 'redis',
         options: { client: redisClient }
