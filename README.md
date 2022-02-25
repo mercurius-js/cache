@@ -199,6 +199,28 @@ Example
   }
 ```
 
+- **policy~key**
+
+To improve performance, we can define a custom key serializer.
+Example  
+
+```js
+  const schema = `
+  type Query {
+    getUser (id: ID!): User
+  }`
+
+  // ...
+
+  policy: {
+    Query: {
+      getUser: { key ({ self, arg, info, ctx, fields }) { return `${arg.id}` } }
+    }
+  }
+```
+
+Please note that the `key` function must return a string, otherwise the result will be stringified, losing the performance advantage of custom serialization.
+
 - **policy~extendKey**
 
 extend the key to cache responses by different requests, for example, to enable custom cache per user.  
