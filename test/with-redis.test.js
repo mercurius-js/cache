@@ -3,8 +3,8 @@
 const { test, teardown, beforeEach } = require('tap')
 const fastify = require('fastify')
 const mercurius = require('mercurius')
-const cache = require('..')
 const Redis = require('ioredis')
+const cache = require('..')
 const { request } = require('./helper')
 
 const redisClient = new Redis()
@@ -456,5 +456,348 @@ test('policy options', async t => {
       // never used the cache
       t.equal(hits, 0)
     })
+  })
+})
+
+test('manual invalidation', async t => {
+  beforeEach(async () => {
+    await redisClient.flushall()
+  })
+
+  const createApp = ({ schema, resolvers, t, cacheOptions }) => {
+    const app = fastify()
+    t.teardown(app.close.bind(app))
+    app.register(mercurius, { schema, resolvers })
+    app.register(cache, cacheOptions)
+    return app
+  }
+
+  t.test('should be able to call invalidation with a reference', async t => {
+    let hits
+    const app = createApp({
+      t,
+      schema: `
+      type Country {
+        name: String
+      }
+    
+      type User {
+        id: ID!
+        name: String!
+      }
+    
+      type Query {
+        user(id: ID!): User
+        countries: [Country]
+      }
+    `,
+      resolvers: {
+        Query: {
+          user (_, { id }) { return { id, name: `User ${id}` } },
+          countries () { return [{ name: 'Ireland' }, { name: 'Italy' }] }
+        }
+      },
+      cacheOptions: {
+        ttl: 99,
+        storage: {
+          type: 'redis',
+          options: { client: redisClient, invalidation: true }
+        },
+        onHit (type, fieldName) {
+          hits++
+        },
+        policy: {
+          Query: {
+            user: {
+              references: (_request, _key, result) => {
+                if (!result) { return }
+                return [`user:${result.id}`]
+              }
+            }
+          }
+        }
+      }
+    })
+
+    const query = '{ user(id: "1") { id, name } }'
+    hits = 0
+    await request({ app, query })
+    await app.graphql.cache.invalidate('user:1')
+    await request({ app, query })
+    t.equal(hits, 0)
+  })
+
+  t.test('should be able to call invalidation with wildcard', async t => {
+    let hits
+    const app = createApp({
+      t,
+      schema: `
+      type Country {
+        name: String
+      }
+    
+      type User {
+        id: ID!
+        name: String!
+      }
+    
+      type Query {
+        user(id: ID!): User
+        countries: [Country]
+      }
+    `,
+      resolvers: {
+        Query: {
+          user (_, { id }) { return { id, name: `User ${id}` } },
+          countries () { return [{ name: 'Ireland' }, { name: 'Italy' }] }
+        }
+      },
+      cacheOptions: {
+        ttl: 99,
+        storage: {
+          type: 'redis',
+          options: { client: redisClient, invalidation: true }
+        },
+        onHit (type, fieldName) {
+          hits++
+        },
+        policy: {
+          Query: {
+            user: {
+              references: (_request, _key, result) => {
+                if (!result) { return }
+                return [`user:${result.id}`]
+              }
+            }
+          }
+        }
+      }
+    })
+
+    hits = 0
+    await request({ app, query: '{ user(id: "1") { name } }' })
+    await request({ app, query: '{ user(id: "2") { name } }' })
+    await request({ app, query: '{ user(id: "3") { name } }' })
+    await app.graphql.cache.invalidate('user:*')
+    await request({ app, query: '{ user(id: "1") { name } }' })
+    await request({ app, query: '{ user(id: "2") { name } }' })
+    await request({ app, query: '{ user(id: "3") { name } }' })
+    t.equal(hits, 0)
+  })
+
+  t.test('should be able to call invalidation with an array of references', async t => {
+    let hits
+    const app = createApp({
+      t,
+      schema: `
+      type Country {
+        name: String
+      }
+    
+      type User {
+        id: ID!
+        name: String!
+      }
+    
+      type Query {
+        user(id: ID!): User
+        countries: [Country]
+      }
+    `,
+      resolvers: {
+        Query: {
+          user (_, { id }) { return { id, name: `User ${id}` } },
+          countries () { return [{ name: 'Ireland' }, { name: 'Italy' }] }
+        }
+      },
+      cacheOptions: {
+        ttl: 99,
+        storage: {
+          type: 'redis',
+          options: { client: redisClient, invalidation: true }
+        },
+        onHit (type, fieldName) {
+          hits++
+        },
+        policy: {
+          Query: {
+            user: {
+              references: (_request, _key, result) => {
+                if (!result) { return }
+                return [`user:${result.id}`]
+              }
+            }
+          }
+        }
+      }
+    })
+
+    hits = 0
+    await request({ app, query: '{ user(id: "1") { id, name } }' })
+    await request({ app, query: '{ user(id: "2") { id, name } }' })
+    await request({ app, query: '{ user(id: "3") { id, name } }' })
+    await app.graphql.cache.invalidate(['user:1', 'user:2'])
+    await request({ app, query: '{ user(id: "1") { id, name } }' })
+    await request({ app, query: '{ user(id: "2") { id, name } }' })
+    t.equal(hits, 0)
+  })
+
+  t.test('should be able to call invalidation on a specific storage', async t => {
+    const app = createApp({
+      t,
+      schema: `
+      type Country {
+        name: String
+      }
+    
+      type User {
+        id: ID!
+        name: String!
+      }
+    
+      type Query {
+        user(id: ID!): User
+        countries: [Country]
+      }
+    `,
+      resolvers: {
+        Query: {
+          user (_, { id }) { return { id, name: `User ${id}` } },
+          countries () { return [{ name: 'Ireland' }, { name: 'Italy' }] }
+        }
+      },
+      cacheOptions: {
+        ttl: 99,
+        storage: {
+          type: 'redis',
+          options: { client: redisClient, invalidation: true }
+        },
+        onHit (type, fieldName) {
+          hits[`${type}.${fieldName}`]++
+        },
+        policy: {
+          Query: {
+            user: {
+              references: (_request, _key, result) => {
+                if (!result) { return }
+                return [`user:${result.id}`]
+              }
+            },
+            countries: {
+              ttl: 86400, // 1 day
+              storage: { type: 'memory', options: { invalidation: true } },
+              references: () => ['countries']
+            }
+          }
+        }
+      }
+    })
+
+    const hits = { 'Query.user': 0, 'Query.countries': 0 }
+    await request({ app, query: '{ user(id: "1") { id, name } }' })
+    await request({ app, query: '{ countries { name } }' })
+
+    await app.graphql.cache.invalidate('countries', 'Query.countries')
+    await request({ app, query: '{ user(id: "1") { id, name } }' })
+    await request({ app, query: '{ countries { name } }' })
+    t.same(hits, { 'Query.user': 1, 'Query.countries': 0 })
+  })
+
+  t.test('should get a warning calling invalidation when it is disabled', async t => {
+    t.plan(1)
+
+    const app = createApp({
+      t,
+      schema: `
+      type User {
+        id: ID!
+        name: String!
+      }
+    
+      type Query {
+        user(id: ID!): User
+      }
+    `,
+      resolvers: {
+        Query: {
+          user (_, { id }) { return { id, name: `User ${id}` } }
+        }
+      },
+      cacheOptions: {
+        ttl: 99,
+        storage: {
+          type: 'redis',
+          options: {
+            client: redisClient,
+            invalidation: false,
+            log: {
+              warn: (args) => {
+                t.equal(args.msg, 'acd/storage/redis.invalidate, exit due invalidation is disabled')
+              }
+            }
+          }
+        },
+        policy: {
+          Query: { user: true }
+        }
+      }
+    })
+
+    await request({ app, query: '{ user(id: "1") { id, name } }' })
+    app.graphql.cache.invalidate('user:1')
+  })
+
+  t.test('should reject calling invalidation on a non-existing storage', async t => {
+    const app = createApp({
+      t,
+      schema: `
+      type Country {
+        name: String
+      }
+    
+      type User {
+        id: ID!
+        name: String!
+      }
+    
+      type Query {
+        user(id: ID!): User
+        countries: [Country]
+      }
+    `,
+      resolvers: {
+        Query: {
+          user (_, { id }) { return { id, name: `User ${id}` } },
+          countries () { return [{ name: 'Ireland' }, { name: 'Italy' }] }
+        }
+      },
+      cacheOptions: {
+        ttl: 99,
+        storage: {
+          type: 'redis',
+          options: { client: redisClient, invalidation: true }
+        },
+        policy: {
+          Query: {
+            user: {
+              references: (_request, _key, result) => {
+                if (!result) { return }
+                return [`user:${result.id}`]
+              }
+            },
+            countries: {
+              ttl: 86400, // 1 day
+              storage: { type: 'memory', options: { invalidation: true } },
+              references: () => ['countries']
+            }
+          }
+        }
+      }
+    })
+
+    await request({ app, query: '{ user(id: "1") { id, name } }' })
+    await request({ app, query: '{ countries { name } }' })
+
+    await t.rejects(app.graphql.cache.invalidate('countries', 'non-existing-storage'))
   })
 })
