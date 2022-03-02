@@ -17,6 +17,10 @@ module.exports = fp(async function (app, opts) {
       setupSchema(app.graphql.schema, policy, all, cache, skip, onDedupe, onHit, onMiss, onSkip, onError, report)
     },
 
+    invalidate (references, storage) {
+      return cache.invalidateAll(references, storage)
+    },
+
     clear () {
       cache.clear()
       report.clear()
@@ -94,7 +98,7 @@ function setupSchema (schema, policy, all, cache, skip, onDedupe, onHit, onMiss,
   }
 
   if (!all && policies.length) {
-    throw new Error(`policies does not match schema: ${policies.join(', ')}`)
+    throw new Error(`policies does not match schema: ${policies.join(', ')}, it must be a resolver or a loader`)
   }
 }
 

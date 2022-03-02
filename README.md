@@ -428,6 +428,54 @@ Example
 
 ## Methods
 
+- **invalidate**
+
+### `cache.invalidate(references, [storage])`
+
+`cache.invalidate` perform invalidation over the whole storage.  
+To specify the `storage` to operate invalidation, it needs to be the name of a policy, for example `Query.getUser`.  
+Note that `invalidation` must be enabled on `storage`.
+
+`references` can be:
+
+- a single reference
+- an array of references (without wildcard)
+- a matching reference with wildcard, same logic for `memory` and `redis`
+
+Example
+
+```js
+const app = fastify()
+
+await app.register(cache, {
+  ttl: 60,
+  storage: {
+    type: 'redis',
+    options: { client: redisClient, invalidation: true    }
+  },
+  policy: { 
+    Query: {
+      getUser: {
+        references: (args, key, result) => result ? [`user:${result.id}`] : null
+      }
+    }
+  }
+})
+
+// ...
+
+// invalidate all users
+await app.graphql.cache.invalidate('user:*')
+
+// invalidate user 1
+await app.graphql.cache.invalidate('user:1')
+
+// invalidate user 1 and user 2
+await app.graphql.cache.invalidate(['user:1', 'user:2'])
+```
+
+See [example](/examples/invalidation.js) for a complete example.
+
 - **clear**
 
 `clear` method allows to pragmatically clear the cache entries, for example
