@@ -432,7 +432,8 @@ Example
 
 ### `cache.invalidate(references, [storage])`
 
-`cache.invalidate` perform invalidation over the whole storage; if `storage` is not specified, using the same `name` as the defined function, invalidation is made over the default storage.  
+`cache.invalidate` perform invalidation over the whole storage.  
+To specify the `storage` to operate invalidation, it needs to be the name of a policy, for example `Query.getUser`.  
 Note that `invalidation` must be enabled on `storage`.
 
 `references` can be:
