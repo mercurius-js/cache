@@ -1,6 +1,6 @@
 {
   "name": "mercurius-cache",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Cache the results of your GraphQL resolvers, for Mercurius",
   "main": "index.js",
   "types": "index.d.ts",
