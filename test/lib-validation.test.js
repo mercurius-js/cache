@@ -82,7 +82,8 @@ test('should get default storage.options.invalidation.referencesTTL as max of po
         a: { ttl: 2, storage: { type: 'redis', options: { client: {} } } },
         b: { ttl: 3, storage: { type: 'redis', options: { client: {} } } },
         c: { ttl: 4, storage: { type: 'redis', options: { client: {} } } },
-        d: { ttl: 5, storage: { type: 'redis', options: { client: {} } } }
+        d: { ttl: 5, storage: { type: 'redis', options: { client: {} } } },
+        e: { storage: { type: 'redis', options: { client: {} } } }
       }
     }
   }
