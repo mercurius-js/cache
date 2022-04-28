@@ -82,8 +82,7 @@ test('should get default storage.options.invalidation.referencesTTL as max of po
         a: { ttl: 2, storage: { type: 'redis', options: { client: {} } } },
         b: { ttl: 3, storage: { type: 'redis', options: { client: {} } } },
         c: { ttl: 4, storage: { type: 'redis', options: { client: {} } } },
-        d: { ttl: 5, storage: { type: 'redis', options: { client: {} } } },
-        e: { }
+        d: { ttl: 5, storage: { type: 'redis', options: { client: {} } } }
       }
     }
   }
@@ -167,6 +166,11 @@ const cases = [
     expect: /ttl must be a number greater than 0/
   },
   {
+    title: 'should get error using ttl NaN',
+    options: { ttl: NaN },
+    expect: /ttl must be a number greater than 0/
+  },
+  {
     title: 'should get error using onDedupe as string',
     options: { onDedupe: 'not a function' },
     expect: /onDedupe must be a function/
@@ -231,6 +235,11 @@ const cases = [
   {
     title: 'should get error using policy.ttl negative',
     options: { policy: { Query: { add: { ttl: -1 } } } },
+    expect: /ttl must be a number greater than 0/
+  },
+  {
+    title: 'should get error using policy.ttl NaN',
+    options: { policy: { Query: { add: { ttl: NaN } } } },
     expect: /ttl must be a number greater than 0/
   },
   {
