@@ -56,7 +56,7 @@ test('polling interval with a new schema should trigger refresh of schema policy
     federationMetadata: true
   })
 
-  await userService.listen(0)
+  await userService.listen({ port: 0 })
 
   const userServicePort = userService.server.address().port
 

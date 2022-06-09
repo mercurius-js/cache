@@ -44,7 +44,7 @@ module.exports = fp(async function (app, opts) {
     report = createReport({ app, all, policy, logInterval, logReport })
   }
 }, {
-  fastify: '^3.x',
+  fastify: '4.x',
   dependencies: ['mercurius']
 })
 
