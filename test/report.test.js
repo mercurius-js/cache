@@ -282,6 +282,92 @@ test('Report using custom logReport function', async ({ type, plan, endAll, fail
   await once(stream, 'data')
 })
 
+test('Report using a custom type', async ({ plan, ok, teardown }) => {
+  plan(4)
+  const app = fastify()
+  teardown(app.close.bind(app))
+  const clock = FakeTimers.install({
+    shouldAdvanceTime: true,
+    advanceTimeDelta: 100
+  })
+  teardown(() => clock.uninstall())
+
+  const dogs = [{ name: 'Max' }, { name: 'Charlie' }, { name: 'Buddy' }, { name: 'Max' }]
+  const owners = { Max: { name: 'Jennifer' }, Charlie: { name: 'Sarah' }, Buddy: { name: 'Tracy' } }
+
+  const schema = `
+    type Human {
+      name: String!
+    }
+
+    type Dog {
+      name: String!
+      owner: Human
+    }
+
+    type Query {
+      dogs: [Dog]
+    }
+
+    type Mutation {
+      addDog(name: String!): Dog
+    }
+  `
+
+  const resolvers = {
+    Query: {
+      dogs (_, params, { reply }) { return dogs }
+    },
+    Mutation: {
+      async addDog (_, { name }, { reply }) {
+        const dog = { name }
+        dogs.push(dog)
+        return dog
+      }
+    }
+  }
+
+  const loaders = {
+    Dog: {
+      async owner (queries) { return queries.map(({ obj }) => owners[obj.name]) }
+    }
+  }
+
+  app.register(mercurius, {
+    schema,
+    resolvers,
+    loaders
+  })
+
+  app.register(cache, {
+    ttl: 10,
+    logInterval: 1,
+    logReport: (report) => {
+      ok(report['Dog.owner'])
+      ok(report['Query.dogs'])
+    },
+    policy: {
+      Dog: {
+        owner: true
+      },
+      Query: {
+        dogs: true
+      },
+      Mutation: {
+        addDog: {
+          invalidate: () => '*'
+        }
+      }
+    }
+  })
+
+  await request({ app, query: '{ dogs { owner { name } } }' })
+  await request({ app, query: '{ dogs { owner { name } } }' })
+
+  clock.tick(1000)
+  await clock.nextAsync()
+})
+
 test('Report dedupes', async ({ strictSame, plan, fail, teardown, equal }) => {
   plan(4)
 

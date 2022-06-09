@@ -17,6 +17,10 @@ module.exports = fp(async function (app, opts) {
       setupSchema(app.graphql.schema, policy, all, cache, skip, onDedupe, onHit, onMiss, onSkip, onError, report)
     },
 
+    invalidate (references, storage) {
+      return cache.invalidateAll(references, storage)
+    },
+
     clear () {
       cache.clear()
       report.clear()
@@ -94,7 +98,7 @@ function setupSchema (schema, policy, all, cache, skip, onDedupe, onHit, onMiss,
   }
 
   if (!all && policies.length) {
-    throw new Error(`policies does not match schema: ${policies.join(', ')}`)
+    throw new Error(`policies does not match schema: ${policies.join(', ')}, it must be a resolver or a loader`)
   }
 }
 
@@ -138,7 +142,6 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
     storage,
     references,
 
-    // TODO use a custom policy serializer if any
     serialize ({ self, arg, info, ctx }) {
       // We need to cache only for the selected fields to support Federation
       // TODO detect if we really need to do this in most cases
@@ -158,16 +161,24 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
       }
       fields.sort()
 
-      let extendKey
-      if (policy && policy.extendKey) {
+      // We must skip ctx and info as they are not easy to serialize
+      const id = { self, arg, fields }
+
+      if (!policy) {
+        return id
+      }
+
+      // use a custom policy serializer if any
+      if (policy.key) {
+        return policy.key({ self, arg, info, ctx, fields })
+      } else if (policy.extendKey) {
         const append = policy.extendKey(self, arg, ctx, info)
         if (append) {
-          extendKey = '~' + append
+          id.extendKey = '~' + append
         }
       }
 
-      // We must skip ctx and info as they are not easy to serialize
-      return { self, arg, fields, extendKey }
+      return id
     }
   }, async function ({ self, arg, ctx, info }) {
     return originalFieldResolver(self, arg, ctx, info)
