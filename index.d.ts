@@ -101,6 +101,7 @@ declare const mercuriusCache: FastifyPluginAsync<MercuriusCacheOptions>;
 export interface MercuriusCacheContext {
   refresh(): void;
   clear(): void;
+  invalidate(references: string | string[], storage?: string): void
 }
 
 declare module "mercurius" {
