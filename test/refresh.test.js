@@ -52,7 +52,7 @@ test('polling interval with a new schema should trigger refresh of schema policy
         name: String
       }
     `,
-    resolvers: resolvers,
+    resolvers,
     federationMetadata: true
   })
 
@@ -201,7 +201,7 @@ test('adds a mercuriusCache.refresh() method', async (t) => {
         name: String
       }
     `,
-    resolvers: resolvers
+    resolvers
   })
 
   userService.register(mercuriusCache, {
