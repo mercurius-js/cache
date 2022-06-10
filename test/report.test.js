@@ -19,7 +19,7 @@ test('Report with policy specified', async ({ strictSame, plan, fail, teardown }
   try {
     app = fastify({
       logger: {
-        stream: stream
+        stream
       }
     })
   } catch (e) {
@@ -91,7 +91,7 @@ test('Report with all specified', async ({ strictSame, plan, fail, teardown }) =
   try {
     app = fastify({
       logger: {
-        stream: stream
+        stream
       }
     })
   } catch (e) {
@@ -158,7 +158,7 @@ test('Log skips correctly', async ({ strictSame, plan, fail, teardown }) => {
   try {
     app = fastify({
       logger: {
-        stream: stream
+        stream
       }
     })
   } catch (e) {
@@ -228,7 +228,7 @@ test('Report using custom logReport function', async ({ type, plan, endAll, fail
   try {
     app = fastify({
       logger: {
-        stream: stream
+        stream
       }
     })
   } catch (e) {
@@ -374,7 +374,7 @@ test('Report dedupes', async ({ strictSame, plan, fail, teardown, equal }) => {
   let app = null
   const stream = split(JSON.parse)
   try {
-    app = fastify({ logger: { stream: stream } })
+    app = fastify({ logger: { stream } })
   } catch (e) {
     fail()
   }

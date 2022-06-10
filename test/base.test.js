@@ -569,7 +569,7 @@ test('skip the cache if operation is Subscription', ({ plan, teardown, fail, err
     }
   })
 
-  app.listen(0, err => {
+  app.listen({ port: 0 }, err => {
     error(err)
 
     const ws = new WebSocket('ws://localhost:' + (app.server.address()).port + '/graphql', 'graphql-ws')

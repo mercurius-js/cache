@@ -48,7 +48,7 @@ module.exports = fp(async function (app, opts) {
     report = createReport({ app, all, policy, logInterval, logReport })
   }
 }, {
-  fastify: '^3.x',
+  fastify: '4.x',
   dependencies: ['mercurius']
 })
 
@@ -57,9 +57,9 @@ function setupSchema (schema, policy, all, cache, skip, onDedupe, onHit, onMiss,
   // validate policies vs schema
   const policies = !all && policy
     ? Object.keys(policy).reduce((o, key) => {
-        o.push(...Object.keys(policy[key]).map(fieldName => `${key}.${fieldName}`))
-        return o
-      }, [])
+      o.push(...Object.keys(policy[key]).map(fieldName => `${key}.${fieldName}`))
+      return o
+    }, [])
     : []
 
   for (const schemaType of Object.values(schemaTypeMap)) {

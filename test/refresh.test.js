@@ -52,11 +52,11 @@ test('polling interval with a new schema should trigger refresh of schema policy
         name: String
       }
     `,
-    resolvers: resolvers,
+    resolvers,
     federationMetadata: true
   })
 
-  await userService.listen(0)
+  await userService.listen({ port: 0 })
 
   const userServicePort = userService.server.address().port
 
@@ -201,7 +201,7 @@ test('adds a mercuriusCache.refresh() method', async (t) => {
         name: String
       }
     `,
-    resolvers: resolvers
+    resolvers
   })
 
   userService.register(mercuriusCache, {
