@@ -47,7 +47,7 @@
   },
   "dependencies": {
     "async-cache-dedupe": "^1.2.2",
-    "fastify-plugin": "^3.0.1"
+    "fastify-plugin": "^4.2.1"
   },
   "precommit": "test"
 }
