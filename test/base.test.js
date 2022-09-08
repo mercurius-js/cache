@@ -100,7 +100,7 @@ test('cache a resolver', async ({ equal, same, pass, plan, teardown }) => {
 })
 
 test('No TTL, do not use cache', async ({ equal, same, pass, plan, teardown }) => {
-  plan(10)
+  plan(7)
 
   const app = fastify()
   teardown(app.close.bind(app))
@@ -128,11 +128,13 @@ test('No TTL, do not use cache', async ({ equal, same, pass, plan, teardown }) =
   })
 
   let misses = 0
+  let hits = 0
 
   app.register(cache, {
+    onHit (type, name) {
+      hits++
+    },
     onMiss (type, name) {
-      equal(type, 'Query', 'on miss')
-      equal(name, 'add')
       misses++
     },
     policy: {
@@ -147,7 +149,8 @@ test('No TTL, do not use cache', async ({ equal, same, pass, plan, teardown }) =
     query()
   ])
 
-  equal(misses, 2)
+  equal(misses, 0)
+  equal(hits, 0)
 
   async function query () {
     const query = '{ add(x: 2, y: 2) }'
