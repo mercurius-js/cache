@@ -1409,9 +1409,7 @@ test('should call onError with Internal Error when mocked define receives no onE
   await request({ app, query: '{ add(x: 1, y: 1) }' })
 })
 
-test('references throws', async ({ fail, pass, plan, teardown, same }) => {
-  plan(1)
-
+test('references throws', async ({ fail, pass, teardown, same, equal }) => {
   const app = fastify()
   teardown(app.close.bind(app))
 
@@ -1447,7 +1445,7 @@ test('references throws', async ({ fail, pass, plan, teardown, same }) => {
       fail()
     },
     onMiss (type, name) {
-      if (++miss === 2) { pass() }
+      miss++
     },
     policy: {
       Query: {
@@ -1470,6 +1468,7 @@ test('references throws', async ({ fail, pass, plan, teardown, same }) => {
   })
 
   same(res.json(), { data: { get: 'get 11' } })
+  equal(miss, 1)
 })
 
 test('policy without Query', async ({ teardown }) => {
@@ -1665,4 +1664,41 @@ test('should be able to clear pragmatically the cache', async (t) => {
   t.same(await request({ app, query: '{ echo (value: "Alpha") }' }), { data: { echo: 'Alpha' } })
 
   t.equal(misses, 2)
+})
+
+test('should call original resolver only once on resolver error', async (t) => {
+  const app = fastify()
+  t.teardown(async () => {
+    await app.close()
+  })
+
+  let count = 0
+
+  const resolvers = {
+    Query: {
+      hello () {
+        count++
+        throw new Error('oops')
+      }
+    }
+  }
+
+  app.register(mercurius, {
+    schema: `
+      type Query {
+        hello: String
+      }
+    `,
+    resolvers
+  })
+
+  await app.register(cache, {
+    ttl: 2,
+    all: true,
+    storage: { type: 'memory' }
+  })
+
+  await request({ app, query: '{ hello }' })
+
+  t.equal(count, 1)
 })

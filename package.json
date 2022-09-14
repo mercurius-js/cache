@@ -46,7 +46,7 @@
     "directory": "./test/types"
   },
   "dependencies": {
-    "async-cache-dedupe": "^1.4.0",
+    "async-cache-dedupe": "^1.4.1",
     "fastify-plugin": "^4.2.1"
   },
   "precommit": "test"

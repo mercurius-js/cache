@@ -198,7 +198,11 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
 
     // use cache to get the result
     if (!resolved) {
-      result = await getResultFromCache({ self, arg, ctx, info, cache, name, originalFieldResolver })
+      try {
+        result = await cache[name]({ self, arg, ctx, info })
+      } catch (err) {
+        // onError is already been called by cache events binding
+      }
     }
 
     if (invalidate) {
@@ -250,10 +254,10 @@ async function getResultIfSkipDefined ({ self, arg, ctx, info, skip, policy, nam
   return [result, resolved]
 }
 
-async function getResultFromCache ({ self, arg, ctx, info, cache, name, originalFieldResolver }) {
-  try {
-    return await cache[name]({ self, arg, ctx, info })
-  } catch (error) {
-    return await originalFieldResolver(self, arg, ctx, info)
-  }
-}
+// async function getResultFromCache ({ self, arg, ctx, info, cache, name, originalFieldResolver }) {
+//   // try {
+//     return await cache[name]({ self, arg, ctx, info })
+//   // } catch (error) {
+//   //   return await originalFieldResolver(self, arg, ctx, info)
+//   // }
+// }
