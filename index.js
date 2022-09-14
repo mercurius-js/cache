@@ -253,11 +253,3 @@ async function getResultIfSkipDefined ({ self, arg, ctx, info, skip, policy, nam
   }
   return [result, resolved]
 }
-
-// async function getResultFromCache ({ self, arg, ctx, info, cache, name, originalFieldResolver }) {
-//   // try {
-//     return await cache[name]({ self, arg, ctx, info })
-//   // } catch (error) {
-//   //   return await originalFieldResolver(self, arg, ctx, info)
-//   // }
-// }
