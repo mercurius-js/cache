@@ -118,10 +118,10 @@ test('cache different policies with different options / storage', async ({ equal
   await request({ app, query: '{ sub(x: 3, y: 1) }' })
 
   equal(hits.add, 0, 'never hits the cache')
-  equal(misses.add, 3)
+  equal(misses.add, 0, 'never use the cache')
 
   equal(hits.sub, 0, 'never hits the cache')
-  equal(misses.sub, 6)
+  equal(misses.sub, 0, 'never use the cache')
 })
 
 test('cache different policies with different options / skip', async ({ equal, teardown }) => {

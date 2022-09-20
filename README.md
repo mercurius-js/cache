@@ -372,7 +372,7 @@ called when an error occurred on the caching operation.
 Example  
 
 ```js
-  onSkip (type, fieldName, error) {
+  onError (type, fieldName, error) {
     console.error(`error on ${type} ${fieldName}`, error)
   }
 ```
