@@ -198,11 +198,9 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
 
     // use cache to get the result
     if (!resolved) {
-      try {
-        result = await cache[name]({ self, arg, ctx, info })
-      } catch (err) {
-        // onError is already been called by cache events binding
-      }
+      // in case of che original resolver will throw, the error will be forwarded
+      // onError is already been called by cache events binding
+      result = await cache[name]({ self, arg, ctx, info })
     }
 
     if (invalidate) {
