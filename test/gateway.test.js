@@ -5,6 +5,7 @@ const Fastify = require('fastify')
 const mercuriusGateway = require('@mercuriusjs/gateway')
 const { mercuriusFederationPlugin } = require('@mercuriusjs/federation')
 const mercuriusCache = require('..')
+const { makeExecutableSchema } = require('@graphql-tools/schema')
 
 async function createTestService (t, schema, resolvers = {}) {
   const service = Fastify({ logger: { level: 'error' } })
@@ -54,9 +55,23 @@ const posts = {
   }
 }
 
-async function createTestGatewayServer (t, cacheOpts) {
-  // User service
-  const categoryServiceSchema = `
+// Post service
+const postServiceSchema = `
+  type Post @key(fields: "pid") {
+    pid: ID!
+    category: Category
+  }
+
+  type Query @extends {
+    topPosts(count: Int): [Post]
+  }
+
+  type Category @key(fields: "id") @extends {
+    id: ID! @external
+    topPosts(count: Int!): [Post]
+  }`
+
+const categoryServiceSchema = `
   type Query @extends {
     categories: [Category]
   }
@@ -65,6 +80,10 @@ async function createTestGatewayServer (t, cacheOpts) {
     id: ID! 
     name: String
   }`
+
+async function createTestGatewayServer (t, cacheOpts) {
+  // User service
+
   const categoryServiceResolvers = {
     Query: {
       categories: (root, args, context, info) => {
@@ -79,23 +98,12 @@ async function createTestGatewayServer (t, cacheOpts) {
       }
     }
   }
-  const [categoryService, categoryServicePort] = await createTestService(t, categoryServiceSchema, categoryServiceResolvers)
+  const [categoryService, categoryServicePort] = await createTestService(
+    t,
+    categoryServiceSchema,
+    categoryServiceResolvers
+  )
 
-  // Post service
-  const postServiceSchema = `
-  type Post @key(fields: "pid") {
-    pid: ID!
-    category: Category
-  }
-
-  type Query @extends {
-    topPosts(count: Int): [Post]
-  }
-
-  type Category @key(fields: "id") @extends {
-    id: ID! @external
-    topPosts(count: Int!): [Post]
-  }`
   const postServiceResolvers = {
     Post: {
       __resolveReference: (post, args, context, info) => {
@@ -113,7 +121,9 @@ async function createTestGatewayServer (t, cacheOpts) {
     Category: {
       topPosts: (category, { count }, context, info) => {
         t.pass('Category.topPosts')
-        return Object.values(posts).filter(p => p.categoryId === category.id).slice(0, count)
+        return Object.values(posts)
+          .filter((p) => p.categoryId === category.id)
+          .slice(0, count)
       }
     },
     Query: {
@@ -123,7 +133,11 @@ async function createTestGatewayServer (t, cacheOpts) {
       }
     }
   }
-  const [postService, postServicePort] = await createTestService(t, postServiceSchema, postServiceResolvers)
+  const [postService, postServicePort] = await createTestService(
+    t,
+    postServiceSchema,
+    postServiceResolvers
+  )
 
   const gateway = Fastify()
   t.teardown(async () => {
@@ -133,13 +147,16 @@ async function createTestGatewayServer (t, cacheOpts) {
   })
   gateway.register(mercuriusGateway, {
     gateway: {
-      services: [{
-        name: 'category',
-        url: `http://localhost:${categoryServicePort}/graphql`
-      }, {
-        name: 'post',
-        url: `http://localhost:${postServicePort}/graphql`
-      }]
+      services: [
+        {
+          name: 'category',
+          url: `http://localhost:${categoryServicePort}/graphql`
+        },
+        {
+          name: 'post',
+          url: `http://localhost:${postServicePort}/graphql`
+        }
+      ]
     }
   })
 
@@ -147,7 +164,7 @@ async function createTestGatewayServer (t, cacheOpts) {
     gateway.register(mercuriusCache, cacheOpts)
   }
 
-  return gateway
+  return { gateway, postService, categoryService }
 }
 
 test('gateway - should cache it all', async (t) => {
@@ -156,7 +173,7 @@ test('gateway - should cache it all', async (t) => {
   // two assertions.
   t.plan(14)
 
-  const app = await createTestGatewayServer(t, {
+  const { gateway: app } = await createTestGatewayServer(t, {
     ttl: 4242,
     // cache it all
     policy: {
@@ -281,7 +298,7 @@ test('gateway - should let different fields in the query ignore the cache', asyn
   // two assertions.
   t.plan(14)
 
-  const app = await createTestGatewayServer(t, {
+  const { gateway: app } = await createTestGatewayServer(t, {
     ttl: 4242,
     // cache it all
     policy: {
@@ -424,5 +441,155 @@ test('gateway - should let different fields in the query ignore the cache', asyn
     })
 
     t.same(res.json(), expected2)
+  }
+})
+
+test('gateway - should reset cache after gateway replace', async (t) => {
+  // The number of the tests are the number of resolvers
+  // in the federeted services called for 1 request plus
+  // two assertions.
+  // t.plan(14)
+
+  const { gateway: app, postService } = await createTestGatewayServer(t, {
+    ttl: 4242,
+    // cache it all
+    policy: {
+      Query: {
+        categories: true,
+        topPosts: true
+      },
+      Post: {
+        category: true
+      },
+      Category: {
+        topPosts: true
+      }
+    }
+  })
+
+  const query = `query {
+    categories {
+      id
+      name
+      topPosts(count: 2) {
+        pid
+        category {
+          id
+          name
+        }
+      }
+    }
+    topPosts(count: 2) {
+      pid,
+      category {
+        id
+        name
+      }
+    }
+  }`
+
+  const expected = {
+    data: {
+      categories: [
+        {
+          id: 'c1',
+          name: 'Food',
+          topPosts: [
+            {
+              pid: 'p1',
+              category: {
+                id: 'c1',
+                name: 'Food'
+              }
+            },
+            {
+              pid: 'p3',
+              category: {
+                id: 'c1',
+                name: 'Food'
+              }
+            }
+          ]
+        },
+        {
+          id: 'c2',
+          name: 'Places',
+          topPosts: [
+            {
+              pid: 'p2',
+              category: {
+                id: 'c2',
+                name: 'Places'
+              }
+            }
+          ]
+        }
+      ],
+      topPosts: [
+        {
+          pid: 'p1',
+          category: {
+            id: 'c1',
+            name: 'Food'
+          }
+        },
+        {
+          pid: 'p2',
+          category: {
+            id: 'c2',
+            name: 'Places'
+          }
+        }
+      ]
+    }
+  }
+
+  t.comment('first request')
+
+  {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/graphql',
+      body: { query }
+    })
+
+    t.same(res.json(), expected)
+  }
+
+  t.comment('second request')
+
+  {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/graphql',
+      body: { query }
+    })
+
+    t.same(res.json(), expected)
+  }
+
+  postService.graphql.replaceSchema(
+    makeExecutableSchema({
+      typeDefs: `
+      type Query {
+        add(x: Int, y: Int, z: Int): Int
+      }
+    `,
+      resolvers: {
+        Query: {
+          add: async (_, { x, y, z }) => x + y + z
+        }
+      }
+    })
+  )
+
+  {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/graphql',
+      body: { query }
+    })
+    // this should not be working since I changed schema
+    t.same(res.json(), expected)
   }
 })
