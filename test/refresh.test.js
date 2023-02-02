@@ -13,7 +13,7 @@ const { buildSchema } = require('graphql')
 const immediate = promisify(setImmediate)
 
 test('polling interval with a new schema should trigger refresh of schema policy build', async (t) => {
-  t.plan(7)
+  t.plan(6)
 
   const clock = FakeTimers.install({
     shouldAdvanceTime: true,

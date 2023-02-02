@@ -35,10 +35,10 @@ module.exports = fp(async function (app, opts) {
   app.addHook('onClose', () => {
     report && report.close()
   })
-  // istanbul ignore next
+
   if (app.graphqlGateway) {
     // Add hook to regenerate the resolvers when the schema is refreshed
-    app.graphql.addHook('onGatewayReplaceSchema', async (instance, schema) => {
+    app.graphqlGateway.addHook('onGatewayReplaceSchema', async (instance, schema) => {
       buildCache()
       setupSchema(schema, policy, all, cache, skip, onDedupe, onHit, onMiss, onSkip, onError, report)
     })
