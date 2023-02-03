@@ -1,6 +1,6 @@
 {
   "name": "mercurius-cache",
-  "version": "3.0.0",
+  "version": "3.0.3",
   "description": "Cache the results of your GraphQL resolvers, for Mercurius",
   "main": "index.js",
   "types": "index.d.ts",
@@ -26,28 +26,31 @@
   "homepage": "https://github.com/mercurius-js/cache#readme",
   "devDependencies": {
     "@fastify/pre-commit": "^2.0.2",
-    "@sinonjs/fake-timers": "^9.1.2",
-    "autocannon": "^7.9.0",
-    "concurrently": "^7.4.0",
-    "fastify": "^4.5.3",
+    "@sinonjs/fake-timers": "^10.0.2",
+    "autocannon": "^7.10.0",
+    "concurrently": "^7.6.0",
+    "fastify": "^4.11.0",
     "graphql": "^16.6.0",
-    "ioredis": "^5.2.3",
-    "mercurius": "^11.0.0",
+    "graphql-type-json": "^0.3.2",
+    "ioredis": "^5.2.5",
+    "mercurius": "^12.0.0",
     "snazzy": "^9.0.0",
     "split2": "^4.1.0",
     "standard": "^17.0.0",
-    "tap": "^16.3.0",
-    "tsd": "^0.23.0",
-    "typescript": "^4.8.2",
-    "wait-on": "^6.0.1",
-    "ws": "^8.8.1"
+    "tap": "^16.3.4",
+    "tsd": "^0.25.0",
+    "typescript": "^4.9.4",
+    "wait-on": "^7.0.1",
+    "ws": "^8.12.0",
+    "@mercuriusjs/federation": "^1.0.0",
+    "@mercuriusjs/gateway": "^1.0.0"
   },
   "tsd": {
     "directory": "./test/types"
   },
   "dependencies": {
-    "async-cache-dedupe": "^1.4.1",
-    "fastify-plugin": "^4.2.1"
+    "async-cache-dedupe": "^1.8.0",
+    "fastify-plugin": "^4.5.0"
   },
   "precommit": "test"
 }

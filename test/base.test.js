@@ -1702,3 +1702,42 @@ test('should call original resolver only once on resolver error', async (t) => {
 
   t.equal(count, 1)
 })
+
+test('should get error on resolver error', async (t) => {
+  // solve https://github.com/mercurius-js/cache/issues/116
+  const app = fastify()
+  t.teardown(async () => {
+    await app.close()
+  })
+
+  let count = 0
+
+  const schema = `#graphql
+  type Query {
+    hello: String
+  }
+  `
+
+  const resolvers = {
+    Query: {
+      hello () {
+        count++
+        throw new Error('THE_ERROR')
+      }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  await app.register(cache, {
+    ttl: 2,
+    all: true,
+    storage: { type: 'memory' }
+  })
+
+  const result = await request({ app, query: '{ hello }' })
+
+  t.equal(count, 1)
+  t.same(result.data, { hello: null })
+  t.same(result.errors[0].message, 'THE_ERROR')
+})
