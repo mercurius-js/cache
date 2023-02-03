@@ -2,7 +2,7 @@
 
 const { test } = require('tap')
 const fastify = require('fastify')
-const mercurius = require('mercurius')
+const { mercuriusFederationPlugin } = require('@mercuriusjs/federation')
 const cache = require('..')
 
 const { request } = require('./helper')
@@ -47,10 +47,9 @@ test('cache __resolveReference on federated service', async ({ equal, same, tear
     }
   }
 
-  app.register(mercurius, {
+  app.register(mercuriusFederationPlugin, {
     schema,
-    resolvers,
-    federationMetadata: true
+    resolvers
   })
 
   let hits = 0

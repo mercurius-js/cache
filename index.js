@@ -36,11 +36,13 @@ module.exports = fp(async function (app, opts) {
     report && report.close()
   })
 
-  // Add hook to regenerate the resolvers when the schema is refreshed
-  app.graphql.addHook('onGatewayReplaceSchema', async (instance, schema) => {
-    buildCache()
-    setupSchema(schema, policy, all, cache, skip, onDedupe, onHit, onMiss, onSkip, onError, report)
-  })
+  if (app.graphqlGateway) {
+    // Add hook to regenerate the resolvers when the schema is refreshed
+    app.graphqlGateway.addHook('onGatewayReplaceSchema', async (instance, schema) => {
+      buildCache()
+      setupSchema(schema, policy, all, cache, skip, onDedupe, onHit, onMiss, onSkip, onError, report)
+    })
+  }
 
   function buildCache () {
     // Default the first two parameters of onError(prefix, fieldName, err)

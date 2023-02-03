@@ -5,6 +5,8 @@ const FakeTimers = require('@sinonjs/fake-timers')
 const { promisify } = require('util')
 const Fastify = require('fastify')
 const mercurius = require('mercurius')
+const { mercuriusFederationPlugin, buildFederationSchema } = require('@mercuriusjs/federation')
+const mercuriusGateway = require('@mercuriusjs/gateway')
 const mercuriusCache = require('..')
 const { buildSchema } = require('graphql')
 
@@ -41,7 +43,7 @@ test('polling interval with a new schema should trigger refresh of schema policy
     await userService.close()
   })
 
-  userService.register(mercurius, {
+  userService.register(mercuriusFederationPlugin, {
     schema: `
       extend type Query {
         me: User
@@ -52,15 +54,14 @@ test('polling interval with a new schema should trigger refresh of schema policy
         name: String
       }
     `,
-    resolvers,
-    federationMetadata: true
+    resolvers
   })
 
   await userService.listen({ port: 0 })
 
   const userServicePort = userService.server.address().port
 
-  await gateway.register(mercurius, {
+  await gateway.register(mercuriusGateway, {
     gateway: {
       services: [
         {
@@ -113,7 +114,7 @@ test('polling interval with a new schema should trigger refresh of schema policy
   t.comment('userService.graphql.replaceSchema')
 
   userService.graphql.replaceSchema(
-    mercurius.buildFederationSchema(`
+    buildFederationSchema(`
       extend type Query {
         me: User
       }

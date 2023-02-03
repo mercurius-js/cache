@@ -33,7 +33,7 @@
     "graphql": "^16.6.0",
     "graphql-type-json": "^0.3.2",
     "ioredis": "^5.2.5",
-    "mercurius": "^11.5.0",
+    "mercurius": "^12.0.0",
     "snazzy": "^9.0.0",
     "split2": "^4.1.0",
     "standard": "^17.0.0",
@@ -41,7 +41,9 @@
     "tsd": "^0.25.0",
     "typescript": "^4.9.4",
     "wait-on": "^7.0.1",
-    "ws": "^8.12.0"
+    "ws": "^8.12.0",
+    "@mercuriusjs/federation": "^1.0.0",
+    "@mercuriusjs/gateway": "^1.0.0"
   },
   "tsd": {
     "directory": "./test/types"

@@ -2,15 +2,15 @@
 
 const { test } = require('tap')
 const Fastify = require('fastify')
-const mercurius = require('mercurius')
+const mercuriusGateway = require('@mercuriusjs/gateway')
+const { mercuriusFederationPlugin } = require('@mercuriusjs/federation')
 const mercuriusCache = require('..')
 
 async function createTestService (t, schema, resolvers = {}) {
   const service = Fastify({ logger: { level: 'error' } })
-  service.register(mercurius, {
+  service.register(mercuriusFederationPlugin, {
     schema,
-    resolvers,
-    federationMetadata: true
+    resolvers
   })
   await service.listen({ port: 0 })
   return [service, service.server.address().port]
@@ -54,9 +54,23 @@ const posts = {
   }
 }
 
-async function createTestGatewayServer (t, cacheOpts) {
-  // User service
-  const categoryServiceSchema = `
+// Post service
+const postServiceSchema = `
+  type Post @key(fields: "pid") {
+    pid: ID!
+    category: Category
+  }
+
+  type Query @extends {
+    topPosts(count: Int): [Post]
+  }
+
+  type Category @key(fields: "id") @extends {
+    id: ID! @external
+    topPosts(count: Int!): [Post]
+  }`
+
+const categoryServiceSchema = `
   type Query @extends {
     categories: [Category]
   }
@@ -65,6 +79,10 @@ async function createTestGatewayServer (t, cacheOpts) {
     id: ID! 
     name: String
   }`
+
+async function createTestGatewayServer (t, cacheOpts) {
+  // User service
+
   const categoryServiceResolvers = {
     Query: {
       categories: (root, args, context, info) => {
@@ -79,23 +97,12 @@ async function createTestGatewayServer (t, cacheOpts) {
       }
     }
   }
-  const [categoryService, categoryServicePort] = await createTestService(t, categoryServiceSchema, categoryServiceResolvers)
+  const [categoryService, categoryServicePort] = await createTestService(
+    t,
+    categoryServiceSchema,
+    categoryServiceResolvers
+  )
 
-  // Post service
-  const postServiceSchema = `
-  type Post @key(fields: "pid") {
-    pid: ID!
-    category: Category
-  }
-
-  type Query @extends {
-    topPosts(count: Int): [Post]
-  }
-
-  type Category @key(fields: "id") @extends {
-    id: ID! @external
-    topPosts(count: Int!): [Post]
-  }`
   const postServiceResolvers = {
     Post: {
       __resolveReference: (post, args, context, info) => {
@@ -113,7 +120,9 @@ async function createTestGatewayServer (t, cacheOpts) {
     Category: {
       topPosts: (category, { count }, context, info) => {
         t.pass('Category.topPosts')
-        return Object.values(posts).filter(p => p.categoryId === category.id).slice(0, count)
+        return Object.values(posts)
+          .filter((p) => p.categoryId === category.id)
+          .slice(0, count)
       }
     },
     Query: {
@@ -123,7 +132,11 @@ async function createTestGatewayServer (t, cacheOpts) {
       }
     }
   }
-  const [postService, postServicePort] = await createTestService(t, postServiceSchema, postServiceResolvers)
+  const [postService, postServicePort] = await createTestService(
+    t,
+    postServiceSchema,
+    postServiceResolvers
+  )
 
   const gateway = Fastify()
   t.teardown(async () => {
@@ -131,15 +144,18 @@ async function createTestGatewayServer (t, cacheOpts) {
     await categoryService.close()
     await postService.close()
   })
-  gateway.register(mercurius, {
+  gateway.register(mercuriusGateway, {
     gateway: {
-      services: [{
-        name: 'category',
-        url: `http://localhost:${categoryServicePort}/graphql`
-      }, {
-        name: 'post',
-        url: `http://localhost:${postServicePort}/graphql`
-      }]
+      services: [
+        {
+          name: 'category',
+          url: `http://localhost:${categoryServicePort}/graphql`
+        },
+        {
+          name: 'post',
+          url: `http://localhost:${postServicePort}/graphql`
+        }
+      ]
     }
   })
 
@@ -147,7 +163,7 @@ async function createTestGatewayServer (t, cacheOpts) {
     gateway.register(mercuriusCache, cacheOpts)
   }
 
-  return gateway
+  return { gateway, postService, categoryService }
 }
 
 test('gateway - should cache it all', async (t) => {
@@ -156,7 +172,7 @@ test('gateway - should cache it all', async (t) => {
   // two assertions.
   t.plan(14)
 
-  const app = await createTestGatewayServer(t, {
+  const { gateway: app } = await createTestGatewayServer(t, {
     ttl: 4242,
     // cache it all
     policy: {
@@ -281,7 +297,7 @@ test('gateway - should let different fields in the query ignore the cache', asyn
   // two assertions.
   t.plan(14)
 
-  const app = await createTestGatewayServer(t, {
+  const { gateway: app } = await createTestGatewayServer(t, {
     ttl: 4242,
     // cache it all
     policy: {
