@@ -2,7 +2,6 @@
 
 const fastify = require('fastify')
 const mercurius = require('mercurius')
-const redis = require('@fastify/redis')
 const fp = require('fastify-plugin')
 const cache = require('mercurius-cache')
 
@@ -77,18 +76,15 @@ async function main () {
     subscription: true
   })
 
-  app.register(redis)
-
   app.register(
     fp(async (app) => {
       app.register(
         cache,
         {
           ttl: 10,
-          // default storage is redis
           storage: {
-            type: 'redis',
-            options: { client: app.redis, invalidation: true }
+            type: 'memory',
+            options: { invalidation: true }
           },
           onHit: function (type, fieldName) {
             app.log.info({ msg: 'Hit from cache', type, fieldName })
@@ -114,8 +110,7 @@ async function main () {
               }
             }
           }
-        },
-        { dependencies: ['fastify-redis'] }
+        }
       )
     })
   )
