@@ -2,7 +2,6 @@
 
 const fastify = require('fastify')
 const mercurius = require('mercurius')
-const fp = require('fastify-plugin')
 const cache = require('mercurius-cache')
 
 async function main () {
@@ -77,42 +76,38 @@ async function main () {
   })
 
   app.register(
-    fp(async (app) => {
-      app.register(
-        cache,
-        {
-          ttl: 10,
-          storage: {
-            type: 'memory',
-            options: { invalidation: true }
-          },
-          onHit: function (type, fieldName) {
-            app.log.info({ msg: 'Hit from cache', type, fieldName })
-          },
-          onMiss: function (type, fieldName) {
-            app.log.info({ msg: 'Miss from cache', type, fieldName })
-          },
-          policy: {
-            Query: {
-              notifications: {
-                references: (_, __, result) => {
-                  if (!result) { return }
-                  const references = result.map(notification => (`notification:${notification.id}`))
-                  references.push('notifications')
-                  return references
-                }
-              }
-            },
-            Mutation: {
-              addNotification: {
-                // invalidate the notifications, because it may includes now the new notification
-                invalidate: (self, arg, ctx, info, result) => ['notifications']
-              }
+    cache,
+    {
+      ttl: 10,
+      storage: {
+        type: 'memory',
+        options: { invalidation: true }
+      },
+      onHit: function (type, fieldName) {
+        app.log.info({ msg: 'Hit from cache', type, fieldName })
+      },
+      onMiss: function (type, fieldName) {
+        app.log.info({ msg: 'Miss from cache', type, fieldName })
+      },
+      policy: {
+        Query: {
+          notifications: {
+            references: (_, __, result) => {
+              if (!result) { return }
+              const references = result.map(notification => (`notification:${notification.id}`))
+              references.push('notifications')
+              return references
             }
           }
+        },
+        Mutation: {
+          addNotification: {
+            // invalidate the notifications, because it may includes now the new notification
+            invalidate: (self, arg, ctx, info, result) => ['notifications']
+          }
         }
-      )
-    })
+      }
+    }
   )
 
   await app.listen({ port: 3000 })
