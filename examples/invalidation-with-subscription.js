@@ -94,9 +94,7 @@ async function main () {
           notifications: {
             references: (_, __, result) => {
               if (!result) { return }
-              const references = result.map(notification => (`notification:${notification.id}`))
-              references.push('notifications')
-              return references
+              return [...result.map(notification => (`notification:${notification.id}`)), 'notifications']
             }
           }
         },
