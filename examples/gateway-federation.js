@@ -8,7 +8,7 @@ const fp = require('fastify-plugin')
 const cache = require('..')
 
 async function createPostService () {
-  const service = Fastify()
+  const service = Fastify({ logger: true })
 
   const posts = {
     p1: {
@@ -110,7 +110,8 @@ async function createPostService () {
   service.register(mercuriusFederationPlugin, {
     schema,
     resolvers,
-    graphiql: true
+    graphiql: true,
+    jit: 1
   })
 
   service.register(redis)
@@ -120,7 +121,7 @@ async function createPostService () {
       service.register(
         cache,
         {
-          ttl: 442,
+          ttl: 10,
           storage: {
             type: 'redis',
             options: { client: service.redis, invalidation: true }
@@ -138,6 +139,21 @@ async function createPostService () {
             Post: {
               category: true,
               __resolveReference: true
+            },
+            Query: {
+              posts: {
+                references: (_, __, result) => {
+                  if (!result) return
+                  const references = result.map((post) => `post:${post.id}`)
+                  references.push('posts')
+                  return references
+                }
+              }
+            },
+            Mutation: {
+              createPost: {
+                invalidate: (self, arg, ctx, info, result) => ['posts']
+              }
             }
           }
         },
@@ -150,7 +166,7 @@ async function createPostService () {
 }
 
 async function createCategoriesService () {
-  const service = Fastify()
+  const service = Fastify({ logger: true })
 
   const categories = {
     c1: {
@@ -190,26 +206,33 @@ async function createCategoriesService () {
   service.register(mercuriusFederationPlugin, {
     schema,
     resolvers,
-    graphiql: true
+    graphiql: true,
+    jit: 1
   })
 
-  service.register(cache, {
-    ttl: 442,
-    onHit: function (type, fieldName) {
-      service.log.info({ msg: 'Hit from cache', type, fieldName })
-    },
-    onMiss: function (type, fieldName) {
-      service.log.info({ msg: 'Miss from cache', type, fieldName })
-    },
-    onError (type, fieldName, error) {
-      service.log.error(`Error on ${type} ${fieldName}`, error)
-    },
-    policy: {
-      Category: {
-        __resolveReference: true
-      }
-    }
-  })
+  service.register(redis)
+
+  service.register(
+    fp(async (service) => {
+      service.register(cache, {
+        ttl: 10,
+        onHit: function (type, fieldName) {
+          service.log.info({ msg: 'Hit from cache', type, fieldName })
+        },
+        onMiss: function (type, fieldName) {
+          service.log.info({ msg: 'Miss from cache', type, fieldName })
+        },
+        onError (type, fieldName, error) {
+          service.log.error(`Error on ${type} ${fieldName}`, error)
+        },
+        policy: {
+          Category: { __resolveReference: true }
+        }
+      },
+      { dependencies: ['@fastify/redis'] }
+      )
+    })
+  )
 
   await service.listen({ port: 4002 })
 }
@@ -222,6 +245,7 @@ async function main () {
 
   gateway.register(mercuriusGateway, {
     graphiql: true,
+    jit: 1,
     gateway: {
       services: [
         {
@@ -243,7 +267,7 @@ async function main () {
       gateway.register(
         cache,
         {
-          ttl: 442,
+          ttl: 120,
           storage: {
             type: 'redis',
             options: { client: gateway.redis, invalidation: true }
@@ -259,22 +283,14 @@ async function main () {
           },
           policy: {
             Query: {
-              posts: {
-                references: (_, __, result) => {
-                  if (!result) return
-                  const references = result.map((post) => `post:${post.id}`)
-                  references.push('posts')
-                  return references
-                }
-              },
-              topPosts: true,
-              categories: true
+              categories: true,
+              topPosts: true
             },
-            Mutation: {
-              createPost: {
-                // invalidate the posts, because it may includes now the new post
-                invalidate: (self, arg, ctx, info, result) => ['posts']
-              }
+            Post: {
+              category: true
+            },
+            Category: {
+              topPosts: true
             }
           }
         },
