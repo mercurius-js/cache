@@ -5,7 +5,7 @@ const mercuriusGateway = require('@mercuriusjs/gateway')
 const mercuriusFederationPlugin = require('@mercuriusjs/federation')
 const redis = require('@fastify/redis')
 const fp = require('fastify-plugin')
-const cache = require('..')
+const cache = require('mercurius-cache')
 
 async function createPostService () {
   const service = Fastify({ logger: true })
