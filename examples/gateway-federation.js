@@ -4,7 +4,6 @@ const Fastify = require('fastify')
 const mercuriusGateway = require('@mercuriusjs/gateway')
 const mercuriusFederationPlugin = require('@mercuriusjs/federation')
 const redis = require('@fastify/redis')
-const fp = require('fastify-plugin')
 const cache = require('mercurius-cache')
 
 async function createPostService () {
@@ -107,59 +106,55 @@ async function createPostService () {
     }
   }
 
-  service.register(mercuriusFederationPlugin, {
+  await service.register(mercuriusFederationPlugin, {
     schema,
     resolvers,
     graphiql: true,
     jit: 1
   })
 
-  service.register(redis)
+  await service.register(redis)
 
-  service.register(
-    fp(async (service) => {
-      service.register(
-        cache,
-        {
-          ttl: 10,
-          storage: {
-            type: 'redis',
-            options: { client: service.redis, invalidation: true }
-          },
-          onHit: function (type, fieldName) {
-            service.log.info({ msg: 'Hit from cache', type, fieldName })
-          },
-          onMiss: function (type, fieldName) {
-            service.log.info({ msg: 'Miss from cache', type, fieldName })
-          },
-          onError (type, fieldName, error) {
-            service.log.error(`Error on ${type} ${fieldName}`, error)
-          },
-          policy: {
-            Post: {
-              category: true,
-              __resolveReference: true
-            },
-            Query: {
-              posts: {
-                references: (_, __, result) => {
-                  if (!result) return
-                  const references = result.map((post) => `post:${post.id}`)
-                  references.push('posts')
-                  return references
-                }
-              }
-            },
-            Mutation: {
-              createPost: {
-                invalidate: (self, arg, ctx, info, result) => ['posts']
-              }
+  await service.register(
+    cache,
+    {
+      ttl: 10,
+      storage: {
+        type: 'redis',
+        options: { client: service.redis, invalidation: true }
+      },
+      onHit: function (type, fieldName) {
+        service.log.info({ msg: 'Hit from cache', type, fieldName })
+      },
+      onMiss: function (type, fieldName) {
+        service.log.info({ msg: 'Miss from cache', type, fieldName })
+      },
+      onError (type, fieldName, error) {
+        service.log.error(`Error on ${type} ${fieldName}`, error)
+      },
+      policy: {
+        Post: {
+          category: true,
+          __resolveReference: true
+        },
+        Query: {
+          posts: {
+            references: (_, __, result) => {
+              if (!result) return
+              const references = result.map((post) => `post:${post.id}`)
+              references.push('posts')
+              return references
             }
           }
         },
-        { dependencies: ['@fastify/redis'] }
-      )
-    })
+        Mutation: {
+          createPost: {
+            invalidate: (self, arg, ctx, info, result) => ['posts']
+          }
+        }
+      }
+    },
+    { dependencies: ['@fastify/redis'] }
   )
 
   await service.listen({ port: 4001 })
@@ -203,39 +198,35 @@ async function createCategoriesService () {
     }
   }
 
-  service.register(mercuriusFederationPlugin, {
+  await service.register(mercuriusFederationPlugin, {
     schema,
     resolvers,
     graphiql: true,
     jit: 1
   })
 
-  service.register(redis)
+  await service.register(redis)
 
-  service.register(
-    fp(async (service) => {
-      service.register(cache, {
-        ttl: 10,
-        storage: {
-          type: 'redis',
-          options: { client: service.redis, invalidation: true }
-        },
-        onHit: function (type, fieldName) {
-          service.log.info({ msg: 'Hit from cache', type, fieldName })
-        },
-        onMiss: function (type, fieldName) {
-          service.log.info({ msg: 'Miss from cache', type, fieldName })
-        },
-        onError (type, fieldName, error) {
-          service.log.error(`Error on ${type} ${fieldName}`, error)
-        },
-        policy: {
-          Category: { __resolveReference: true }
-        }
-      },
-      { dependencies: ['@fastify/redis'] }
-      )
-    })
+  await service.register(cache, {
+    ttl: 10,
+    storage: {
+      type: 'redis',
+      options: { client: service.redis, invalidation: true }
+    },
+    onHit: function (type, fieldName) {
+      service.log.info({ msg: 'Hit from cache', type, fieldName })
+    },
+    onMiss: function (type, fieldName) {
+      service.log.info({ msg: 'Miss from cache', type, fieldName })
+    },
+    onError (type, fieldName, error) {
+      service.log.error(`Error on ${type} ${fieldName}`, error)
+    },
+    policy: {
+      Category: { __resolveReference: true }
+    }
+  },
+  { dependencies: ['@fastify/redis'] }
   )
 
   await service.listen({ port: 4002 })
@@ -247,7 +238,7 @@ async function main () {
   await createPostService()
   await createCategoriesService()
 
-  gateway.register(mercuriusGateway, {
+  await gateway.register(mercuriusGateway, {
     graphiql: true,
     jit: 1,
     gateway: {
@@ -264,46 +255,42 @@ async function main () {
     }
   })
 
-  gateway.register(redis)
+  await gateway.register(redis)
 
-  gateway.register(
-    fp(async (gateway) => {
-      gateway.register(
-        cache,
-        {
-          ttl: 120,
-          storage: {
-            type: 'redis',
-            options: { client: gateway.redis, invalidation: true }
-          },
-          onHit: function (type, fieldName) {
-            gateway.log.info({ msg: 'Hit from cache', type, fieldName })
-          },
-          onMiss: function (type, fieldName) {
-            gateway.log.info({ msg: 'Miss from cache', type, fieldName })
-          },
-          onError (type, fieldName, error) {
-            gateway.log.error(`Error on ${type} ${fieldName}`, error)
-          },
-          policy: {
-            Query: {
-              categories: true,
-              topPosts: true
-            },
-            Post: {
-              category: true
-            },
-            Category: {
-              topPosts: true
-            }
-          }
+  await gateway.register(
+    cache,
+    {
+      ttl: 120,
+      storage: {
+        type: 'redis',
+        options: { client: gateway.redis, invalidation: true }
+      },
+      onHit: function (type, fieldName) {
+        gateway.log.info({ msg: 'Hit from cache', type, fieldName })
+      },
+      onMiss: function (type, fieldName) {
+        gateway.log.info({ msg: 'Miss from cache', type, fieldName })
+      },
+      onError (type, fieldName, error) {
+        gateway.log.error(`Error on ${type} ${fieldName}`, error)
+      },
+      policy: {
+        Query: {
+          categories: true,
+          topPosts: true
         },
-        { dependencies: ['@fastify/redis'] }
-      )
-    })
+        Post: {
+          category: true
+        },
+        Category: {
+          topPosts: true
+        }
+      }
+    },
+    { dependencies: ['@fastify/redis'] }
   )
 
-  gateway.listen({ port: 4000 })
+  await gateway.listen({ port: 4000 })
 }
 
 main()
