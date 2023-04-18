@@ -216,6 +216,10 @@ async function createCategoriesService () {
     fp(async (service) => {
       service.register(cache, {
         ttl: 10,
+        storage: {
+          type: 'redis',
+          options: { client: service.redis, invalidation: true }
+        },
         onHit: function (type, fieldName) {
           service.log.info({ msg: 'Hit from cache', type, fieldName })
         },
