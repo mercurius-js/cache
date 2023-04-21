@@ -59,7 +59,6 @@ async function createPostService () {
         return posts[post.pid]
       },
       category: (post, args, context, info) => {
-        context.app.log.info('Post.category')
         return {
           __typename: 'Category',
           id: post.categoryId
@@ -68,7 +67,6 @@ async function createPostService () {
     },
     Category: {
       topPosts: (category, { count }, context, info) => {
-        context.app.log.info('Category.topPosts')
         return Object.values(posts)
           .filter((p) => p.categoryId === category.id)
           .slice(0, count)
@@ -79,7 +77,6 @@ async function createPostService () {
         return Object.values(posts)
       },
       topPosts: (root, { count = 2 }, context, info) => {
-        context.app.log.info('Query.topPosts')
         return Object.values(posts).slice(0, count)
       }
     },
@@ -131,12 +128,15 @@ async function createPostService () {
         },
         Query: {
           posts: {
-            references: (_, __, result) => {
-              if (!result) return
-              const references = result.map((post) => `post:${post.id}`)
-              references.push('posts')
-              return references
-            }
+            references: (_, __, result) => ['posts']
+          },
+          topPosts: {
+            references: (_, __, result) => ['posts']
+          }
+        },
+        Category: {
+          topPosts: {
+            references: (_, __, result) => ['posts']
           }
         },
         Mutation: {
@@ -268,14 +268,10 @@ async function main () {
       },
       policy: {
         Query: {
-          categories: true,
-          topPosts: true
+          categories: true
         },
         Post: {
           category: true
-        },
-        Category: {
-          topPosts: true
         }
       }
     },
