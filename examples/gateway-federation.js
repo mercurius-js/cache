@@ -129,14 +129,6 @@ async function createPostService () {
         Query: {
           posts: {
             references: (_, __, result) => ['posts']
-          },
-          topPosts: {
-            references: (_, __, result) => ['posts']
-          }
-        },
-        Category: {
-          topPosts: {
-            references: (_, __, result) => ['posts']
           }
         },
         Mutation: {
@@ -268,10 +260,18 @@ async function main () {
       },
       policy: {
         Query: {
-          categories: true
+          categories: true,
+          topPosts: {
+            references: (_, __, result) => ['posts']
+          }
         },
         Post: {
           category: true
+        },
+        Category: {
+          topPosts: {
+            references: (_, __, result) => ['posts']
+          }
         }
       }
     },
