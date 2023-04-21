@@ -12,26 +12,18 @@ async function createPostService () {
   const posts = {
     p1: {
       pid: 'p1',
-      title: 'Post 1',
-      content: 'Content 1',
       categoryId: 'c1'
     },
     p2: {
       pid: 'p2',
-      title: 'Post 2',
-      content: 'Content 2',
       categoryId: 'c2'
     },
     p3: {
       pid: 'p3',
-      title: 'Post 3',
-      content: 'Content 3',
       categoryId: 'c1'
     },
     p4: {
       pid: 'p4',
-      title: 'Post 4',
-      content: 'Content 4',
       categoryId: 'c1'
     }
   }
