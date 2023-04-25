@@ -2,7 +2,7 @@
 
 const Fastify = require('fastify')
 const mercuriusGateway = require('@mercuriusjs/gateway')
-const mercuriusFederationPlugin = require('@mercuriusjs/federation')
+const mercuriusFederation = require('@mercuriusjs/federation')
 const redis = require('@fastify/redis')
 const cache = require('mercurius-cache')
 
@@ -95,7 +95,7 @@ async function createPostService () {
     }
   }
 
-  await service.register(mercuriusFederationPlugin, {
+  await service.register(mercuriusFederation, {
     schema,
     resolvers,
     graphiql: true,
@@ -182,7 +182,7 @@ async function createCategoriesService () {
     }
   }
 
-  await service.register(mercuriusFederationPlugin, {
+  await service.register(mercuriusFederation, {
     schema,
     resolvers,
     graphiql: true,
