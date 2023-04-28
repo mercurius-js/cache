@@ -80,7 +80,7 @@ Example
 
 - **stale**
 
-the time after the ttl to serve stale data while the cache values are re-validated. Has no effect if `ttl` is not configured.
+the time in seconds after the ttl to serve stale data while the cache values are re-validated. Has no effect if `ttl` is not configured.
 
 Example  
 
