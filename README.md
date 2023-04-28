@@ -78,6 +78,16 @@ Example
   ttl: 10
 ```
 
+- **stale**
+
+the time after the ttl to serve state data while the cache values are re-validated. Has no effect if `ttl` is not configured.
+
+Example  
+
+```js
+  stale: 5
+```
+
 - **all**
 
 use the cache in all resolvers; default is false. Use either `policy` or `all` but not both.  
@@ -135,7 +145,7 @@ See [https://github.com/mercurius-js/mercurius-cache-example](https://github.com
 - **policy**
 
 specify queries to cache; default is empty.  
-Set it to `true` to cache using main `ttl`.
+Set it to `true` to cache using main `ttl` and `stale` if configured.
 Example  
 
 ```js
@@ -159,6 +169,25 @@ Example
         ttl: 5 // Query "welcome" will be cached for 5 seconds
       },
       bye: true // Query "bye" will be cached for 10 seconds
+    }
+  }
+```
+
+- **policy~stale**
+
+use a specific `ttl` for the policy, instead of the main one.  
+Example  
+
+```js
+  ttl: 10,
+  stale: 10,
+  policy: {
+    Query: {
+      welcome: {
+        ttl: 5 // Query "welcome" will be cached for 5 seconds
+        stale: 5 // Query "welcome" will availale for 5 seconds after the ttl has expired
+      },
+      bye: true // Query "bye" will be cached for 10 seconds and available for 10 seconds after the ttl is expired
     }
   }
 ```

@@ -1,14 +1,28 @@
 'use strict'
 
-const { test, mock } = require('tap')
+const { test, mock, before, teardown } = require('tap')
 const fastify = require('fastify')
 const mercurius = require('mercurius')
+const FakeTimers = require('@sinonjs/fake-timers')
 const WebSocket = require('ws')
 const cache = require('..')
 
 const { promisify } = require('util')
 const immediate = promisify(setImmediate)
 const { request } = require('./helper')
+
+let clock
+
+before(() => {
+  clock = FakeTimers.install({
+    shouldAdvanceTime: true,
+    advanceTimeDelta: 0
+  })
+})
+
+teardown(() => {
+  clock.uninstall()
+})
 
 test('cache a resolver', async ({ equal, same, pass, plan, teardown }) => {
   plan(11)
@@ -97,6 +111,106 @@ test('cache a resolver', async ({ equal, same, pass, plan, teardown }) => {
 
   equal(hits, 1)
   equal(misses, 1)
+})
+
+test('When within the stale threshold return the cached value and refresh the cache', async ({ equal, same, teardown }) => {
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      hello: String
+    }
+  `
+
+  let helloCalls = 0
+  let helloResult = 'world'
+
+  const resolvers = {
+    Query: {
+      async hello (_) {
+        helloCalls++
+        return helloResult
+      }
+    }
+  }
+
+  app.register(mercurius, {
+    schema,
+    resolvers
+  })
+
+  let misses = 0
+  let hits = 0
+
+  app.register(cache, {
+    onHit (type, name) {
+      hits++
+    },
+    onMiss (type, name) {
+      misses++
+    },
+    policy: {
+      Query: {
+        hello: true
+      }
+    },
+    ttl: 1,
+    stale: 1
+  })
+
+  let data = await query()
+
+  equal(helloCalls, 1)
+  equal(misses, 1)
+  equal(hits, 0)
+  same(data, {
+    data: {
+      hello: 'world'
+    }
+  })
+
+  clock.tick(500)
+
+  data = await query()
+
+  equal(helloCalls, 1)
+  equal(misses, 1)
+  equal(hits, 1)
+  same(data, {
+    data: {
+      hello: 'world'
+    }
+  })
+
+  clock.tick(1000)
+
+  helloResult = 'world!'
+  data = await query()
+
+  equal(helloCalls, 2)
+  equal(misses, 1)
+  equal(hits, 2)
+  same(data, {
+    data: {
+      hello: 'world'
+    }
+  })
+
+  async function query () {
+    const query = '{ hello }'
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/graphql',
+      body: {
+        query
+      }
+    })
+
+    equal(res.statusCode, 200)
+    return res.json()
+  }
 })
 
 test('No TTL, do not use cache', async ({ equal, same, pass, plan, teardown }) => {

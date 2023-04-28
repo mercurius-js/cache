@@ -6,7 +6,7 @@ const { validateOpts } = require('./lib/validation')
 const createReport = require('./lib/report')
 
 module.exports = fp(async function (app, opts) {
-  const { all, policy, ttl, skip, storage, onDedupe, onHit, onMiss, onSkip, onError, logInterval, logReport } = validateOpts(app, opts)
+  const { all, policy, ttl, stale, skip, storage, onDedupe, onHit, onMiss, onSkip, onError, logInterval, logReport } = validateOpts(app, opts)
 
   let cache = null
   let report = null
@@ -46,7 +46,7 @@ module.exports = fp(async function (app, opts) {
 
   function buildCache () {
     // Default the first two parameters of onError(prefix, fieldName, err)
-    cache = createCache({ ttl, storage, onError: onError.bind(null, 'Internal Error', 'async-cache-dedupe') })
+    cache = createCache({ ttl, stale, storage, onError: onError.bind(null, 'Internal Error', 'async-cache-dedupe') })
     report = createReport({ app, all, policy, logInterval, logReport })
   }
 }, {
@@ -127,9 +127,10 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
 
   report.wrap({ name, onDedupe, onHit, onMiss, onSkip })
 
-  let ttl, storage, references, invalidate
+  let ttl, stale, storage, references, invalidate
   if (policy) {
     ttl = policy.ttl
+    stale = policy.stale
     storage = policy.storage
     references = policy.references
     invalidate = policy.invalidate
@@ -141,6 +142,7 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
     onMiss: report[name].onMiss,
     onError,
     ttl,
+    stale,
     storage,
     references,
 
