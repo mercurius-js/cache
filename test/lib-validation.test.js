@@ -172,6 +172,21 @@ const cases = [
     expect: /ttl must be a number greater than 0/
   },
   {
+    title: 'should get error using stale as string',
+    options: { stale: '10' },
+    expect: /stale must be a number greater than 0/
+  },
+  {
+    title: 'should get error using stale negative',
+    options: { stale: -1 },
+    expect: /stale must be a number greater than 0/
+  },
+  {
+    title: 'should get error using stale NaN',
+    options: { stale: NaN },
+    expect: /stale must be a number greater than 0/
+  },
+  {
     title: 'should get error using onDedupe as string',
     options: { onDedupe: 'not a function' },
     expect: /onDedupe must be a function/
