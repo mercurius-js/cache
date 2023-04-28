@@ -185,7 +185,7 @@ Example
     Query: {
       welcome: {
         ttl: 5 // Query "welcome" will be cached for 5 seconds
-        stale: 5 // Query "welcome" will availale for 5 seconds after the ttl has expired
+        stale: 5 // Query "welcome" will available for 5 seconds after the ttl has expired
       },
       bye: true // Query "bye" will be cached for 10 seconds and available for 10 seconds after the ttl is expired
     }
