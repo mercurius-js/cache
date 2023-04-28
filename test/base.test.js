@@ -1,6 +1,6 @@
 'use strict'
 
-const { test, mock, before, teardown } = require('tap')
+const { test, mock, before, teardown, afterEach } = require('tap')
 const fastify = require('fastify')
 const mercurius = require('mercurius')
 const FakeTimers = require('@sinonjs/fake-timers')
@@ -18,6 +18,10 @@ before(() => {
     shouldAdvanceTime: true,
     advanceTimeDelta: 0
   })
+})
+
+afterEach(() => {
+  clock.runAll()
 })
 
 teardown(() => {

@@ -1,6 +1,6 @@
 'use strict'
 
-const { test } = require('tap')
+const { test, before, teardown, afterEach } = require('tap')
 const fastify = require('fastify')
 const mercurius = require('mercurius')
 const FakeTimers = require('@sinonjs/fake-timers')
@@ -8,15 +8,25 @@ const cache = require('..')
 
 const { request } = require('./helper')
 
-test('cache different policies with different options / ttl', async ({ equal, teardown }) => {
+let clock
+before(() => {
+  clock = FakeTimers.install({
+    shouldAdvanceTime: true,
+    advanceTimeDelta: 0
+  })
+})
+
+afterEach(() => {
+  clock.runAll()
+})
+
+teardown(() => {
+  clock.uninstall()
+})
+
+test('different cache while revalidate options for policies', async ({ equal, teardown, same }) => {
   const app = fastify()
   teardown(app.close.bind(app))
-
-  const clock = FakeTimers.install({
-    shouldAdvanceTime: true,
-    advanceTimeDelta: 100
-  })
-  teardown(() => clock.uninstall())
 
   const schema = `
   type Query {
@@ -25,6 +35,161 @@ test('cache different policies with different options / ttl', async ({ equal, te
   }
   `
 
+  let addCounter = 0
+  let subCounter = 0
+
+  const resolvers = {
+    Query: {
+      async add () { return ++addCounter },
+      async sub () { return ++subCounter }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  const hits = { add: 0, sub: 0 }
+  const misses = { add: 0, sub: 0 }
+
+  app.register(cache, {
+    ttl: 2,
+    stale: 2,
+    onHit (type, name) {
+      hits[name] = hits[name] ? hits[name] + 1 : 1
+    },
+    onMiss (type, name) {
+      misses[name] = misses[name] ? misses[name] + 1 : 1
+    },
+    policy: {
+      Query: {
+        add: { ttl: 1, stale: 1 },
+        sub: true
+      }
+    }
+  })
+
+  let addData = await request({ app, query: '{ add(x: 1, y: 1) }' })
+  let subData = await request({ app, query: '{ sub(x: 2, y: 2) }' })
+
+  equal(hits.add, 0)
+  equal(misses.add, 1)
+  equal(addCounter, 1)
+  same(addData, {
+    data: {
+      add: 1
+    }
+  })
+
+  equal(hits.sub, 0)
+  equal(misses.sub, 1)
+  equal(subCounter, 1)
+  same(subData, {
+    data: {
+      sub: 1
+    }
+  })
+
+  clock.tick(500)
+
+  addData = await request({ app, query: '{ add(x: 1, y: 1) }' })
+  subData = await request({ app, query: '{ sub(x: 2, y: 2) }' })
+
+  equal(hits.add, 1)
+  equal(misses.add, 1)
+  equal(addCounter, 1)
+  same(addData, {
+    data: {
+      add: 1
+    }
+  })
+
+  equal(hits.sub, 1)
+  equal(misses.sub, 1)
+  equal(subCounter, 1)
+  same(subData, {
+    data: {
+      sub: 1
+    }
+  })
+
+  clock.tick(1000)
+
+  addData = await request({ app, query: '{ add(x: 1, y: 1) }' })
+  subData = await request({ app, query: '{ sub(x: 2, y: 2) }' })
+
+  equal(hits.add, 2)
+  equal(misses.add, 1)
+  equal(addCounter, 2)
+  same(addData, {
+    data: {
+      add: 1
+    }
+  })
+
+  equal(hits.sub, 2)
+  equal(misses.sub, 1)
+  equal(subCounter, 1)
+  same(subData, {
+    data: {
+      sub: 1
+    }
+  })
+
+  addData = await request({ app, query: '{ add(x: 1, y: 1) }' })
+  subData = await request({ app, query: '{ sub(x: 2, y: 2) }' })
+
+  equal(hits.add, 3)
+  equal(misses.add, 1)
+  equal(addCounter, 2)
+  same(addData, {
+    data: {
+      add: 2
+    }
+  })
+
+  equal(hits.sub, 3)
+  equal(misses.sub, 1)
+  equal(subCounter, 1)
+  same(subData, {
+    data: {
+      sub: 1
+    }
+  })
+
+  clock.tick(1000)
+
+  subData = await request({ app, query: '{ sub(x: 2, y: 2) }' })
+
+  equal(hits.sub, 4)
+  equal(misses.sub, 1)
+  equal(subCounter, 2)
+  same(subData, {
+    data: {
+      sub: 1
+    }
+  })
+
+  subData = await request({ app, query: '{ sub(x: 2, y: 2) }' })
+
+  equal(hits.sub, 5)
+  equal(misses.sub, 1)
+  equal(subCounter, 2)
+  same(subData, {
+    data: {
+      sub: 2
+    }
+  })
+})
+
+test('cache different policies with different options / ttl', async ({ equal, teardown }) => {
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+  type Query {
+    add(x: Int, y: Int): Int
+    sub(x: Int, y: Int): Int
+  }
+  `
   const resolvers = {
     Query: {
       async add (_, { x, y }) { return x + y },
