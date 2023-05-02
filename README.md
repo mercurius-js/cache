@@ -71,11 +71,16 @@ app.listen(3000)
 
 - **ttl**
 
-the time to live in seconds; default is `0`, which means that the cache is disabled.
-Example  
+a number or a function that returns a number of the maximum time a cache entry can live in seconds; default is `0`, which means that the cache is disabled. The ttl function reveives the result of the original function as the first argument.
+
+Example(s) 
 
 ```js
   ttl: 10
+```
+
+...js
+  ttl: (result) => !!result.importantProp ? 10 : 0
 ```
 
 - **stale**
@@ -168,14 +173,15 @@ Example
       welcome: {
         ttl: 5 // Query "welcome" will be cached for 5 seconds
       },
-      bye: true // Query "bye" will be cached for 10 seconds
+      bye: true, // Query "bye" will be cached for 10 seconds
+      hello: (result) => result.shouldCache ? 15 : 0 // function that determines the ttl for how long the item should be cached
     }
   }
 ```
 
 - **policy~stale**
 
-use a specific `ttl` for the policy, instead of the main one.  
+use a specific `stale` value for the policy, instead of the main one.  
 Example  
 
 ```js

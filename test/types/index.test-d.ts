@@ -20,7 +20,8 @@ app.register(mercuriusCache, emptyCacheOptions);
 expectAssignable<MercuriusCacheContext | undefined>(app.graphql.cache)
 
 const queryFieldPolicy = {
-  ttl: 1,
+  ttl: (result: { shouldCache: boolean }) => result.shouldCache ? 10 : 0,
+  stale: 10,
   storage: { type: MercuriusCacheStorageType.MEMORY, options: { size: 1 } },
 };
 
@@ -68,7 +69,7 @@ expectNotAssignable<MercuriusCacheStorageRedis>(cacheMemoryStorage);
 const allValidCacheOptions = {
   all: false,
   policy: queryPolicy,
-  ttl: 1000,
+  ttl: () => 1000,
   skip: () => {
     console.log("skip called!");
   },

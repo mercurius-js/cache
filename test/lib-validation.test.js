@@ -130,11 +130,17 @@ test('should not throw error when "__options" is used with valid parameters', as
         a: {
           __options: {
             ttl: 2,
+            stale: 10,
             storage: { type: 'redis', options: { client: {} } },
             extendKey: () => {},
             skip: () => {},
             invalidate: () => {},
             references: () => {}
+          }
+        },
+        b: {
+          __options: {
+            ttl: () => 10
           }
         }
       }
@@ -159,17 +165,17 @@ const cases = [
   {
     title: 'should get error using ttl as string',
     options: { ttl: '10' },
-    expect: /ttl must be a number greater than 0/
+    expect: /ttl must be a function or a number greater than 0/
   },
   {
     title: 'should get error using ttl negative',
     options: { ttl: -1 },
-    expect: /ttl must be a number greater than 0/
+    expect: /ttl must be a function or a number greater than 0/
   },
   {
     title: 'should get error using ttl NaN',
     options: { ttl: NaN },
-    expect: /ttl must be a number greater than 0/
+    expect: /ttl must be a function or a number greater than 0/
   },
   {
     title: 'should get error using stale as string',
@@ -246,17 +252,32 @@ const cases = [
   {
     title: 'should get error using policy.ttl as string',
     options: { policy: { Query: { add: { ttl: '10' } } } },
-    expect: /ttl must be a number greater than 0/
+    expect: /ttl must be a function or a number greater than 0/
   },
   {
     title: 'should get error using policy.ttl negative',
     options: { policy: { Query: { add: { ttl: -1 } } } },
-    expect: /ttl must be a number greater than 0/
+    expect: /ttl must be a function or a number greater than 0/
   },
   {
     title: 'should get error using policy.ttl NaN',
     options: { policy: { Query: { add: { ttl: NaN } } } },
-    expect: /ttl must be a number greater than 0/
+    expect: /ttl must be a function or a number greater than 0/
+  },
+  {
+    title: 'should get error using policy.stale as string',
+    options: { policy: { Query: { add: { stale: '10' } } } },
+    expect: /stale must be a number greater than 0/
+  },
+  {
+    title: 'should get error using policy.stale negative',
+    options: { policy: { Query: { add: { stale: -1 } } } },
+    expect: /stale must be a number greater than 0/
+  },
+  {
+    title: 'should get error using policy.stale NaN',
+    options: { policy: { Query: { add: { stale: NaN } } } },
+    expect: /stale must be a number greater than 0/
   },
   {
     title: 'should get error using policy.extendKey not a function',
