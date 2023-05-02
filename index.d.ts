@@ -4,6 +4,7 @@ import { MercuriusPlugin } from "mercurius";
 export type TtlFunction = (...args: any[]) => number;
 export interface PolicyFieldOptions {
   ttl?: number | TtlFunction;
+  stale?: number;
   storage?: MercuriusCacheStorageMemory | MercuriusCacheStorageRedis;
   extendKey?: Function;
   skip?: Function;
@@ -47,6 +48,7 @@ export interface MercuriusCacheOptions {
   all?: boolean;
   policy?: MercuriusCachePolicy;
   ttl?: number | TtlFunction;
+  stale?: number;
   skip?: Function;
   storage?: MercuriusCacheStorageMemory | MercuriusCacheStorageRedis;
   onDedupe?: Function;
