@@ -71,11 +71,16 @@ app.listen(3000)
 
 - **ttl**
 
-the time to live in seconds; default is `0`, which means that the cache is disabled.
-Example  
+a number or a function that returns a number of the maximum time a cache entry can live in seconds; default is `0`, which means that the cache is disabled. The ttl function reveives the result of the original function as the first argument.
+
+Example(s) 
 
 ```js
   ttl: 10
+```
+
+...js
+  ttl: (result) => !!result.importantProp ? 10 : 0
 ```
 
 - **stale**
@@ -123,7 +128,7 @@ Storage options are:
   - for `redis`
     - **client**: a redis client instance, mandatory. Should be an `ioredis` client or compatible.
     - **invalidation**: enable invalidation, see [documentation](#invalidation). Default is disabled.
-    - **invalidation.referencesTTL**: references TTL in seconds. Default is the max `ttl` between the main one and policies.
+    - **invalidation.referencesTTL**: references TTL in seconds. Default is the max static `ttl` between the main one and policies. If all ttls specified are functions then `referencesTTL` will need to be specified explictly.
     - **log**: logger instance `pino` compatible, default is the `app.log` instance.
 
     Example
@@ -168,14 +173,15 @@ Example
       welcome: {
         ttl: 5 // Query "welcome" will be cached for 5 seconds
       },
-      bye: true // Query "bye" will be cached for 10 seconds
+      bye: true, // Query "bye" will be cached for 10 seconds
+      hello: (result) => result.shouldCache ? 15 : 0 // function that determines the ttl for how long the item should be cached
     }
   }
 ```
 
 - **policy~stale**
 
-use a specific `ttl` for the policy, instead of the main one.  
+use a specific `stale` value for the policy, instead of the main one.  
 Example  
 
 ```js

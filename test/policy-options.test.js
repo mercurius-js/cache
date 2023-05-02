@@ -180,6 +180,60 @@ test('different cache while revalidate options for policies', async ({ equal, te
   })
 })
 
+test('cache different policies with different options / dynamic ttl', async ({ equal, teardown }) => {
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+  type Query {
+    add(x: Int, y: Int): Int
+    sub(x: Int, y: Int): Int
+  }
+  `
+  const resolvers = {
+    Query: {
+      async add (_, { x, y }) { return x + y },
+      async sub (_, { x, y }) { return x - y }
+    }
+  }
+
+  app.register(mercurius, { schema, resolvers })
+
+  const hits = { add: 0, sub: 0 }
+  const misses = { add: 0, sub: 0 }
+
+  app.register(cache, {
+    ttl: 100,
+    onHit (type, name) {
+      hits[name] = hits[name] ? hits[name] + 1 : 1
+    },
+    onMiss (type, name) {
+      misses[name] = misses[name] ? misses[name] + 1 : 1
+    },
+    policy: {
+      Query: {
+        add: { ttl: () => 1 },
+        sub: { ttl: () => 2 }
+      }
+    }
+  })
+
+  await request({ app, query: '{ add(x: 1, y: 1) }' })
+  await request({ app, query: '{ sub(x: 2, y: 2) }' })
+
+  await clock.tick(500)
+  await request({ app, query: '{ add(x: 1, y: 1) }' })
+
+  await clock.tick(2000)
+  await request({ app, query: '{ sub(x: 2, y: 2) }' })
+
+  equal(hits.add, 1)
+  equal(misses.add, 1)
+
+  equal(hits.sub, 0)
+  equal(misses.sub, 2)
+})
+
 test('cache different policies with different options / ttl', async ({ equal, teardown }) => {
   const app = fastify()
   teardown(app.close.bind(app))

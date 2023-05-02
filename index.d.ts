@@ -1,7 +1,10 @@
 import { FastifyPluginAsync } from "fastify";
 import { MercuriusPlugin } from "mercurius";
+
+export type TtlFunction = (...args: any[]) => number;
 export interface PolicyFieldOptions {
-  ttl?: number;
+  ttl?: number | TtlFunction;
+  stale?: number;
   storage?: MercuriusCacheStorageMemory | MercuriusCacheStorageRedis;
   extendKey?: Function;
   skip?: Function;
@@ -44,7 +47,8 @@ export interface MercuriusCacheStorageRedis extends MercuriusCacheStorage {
 export interface MercuriusCacheOptions {
   all?: boolean;
   policy?: MercuriusCachePolicy;
-  ttl?: number;
+  ttl?: number | TtlFunction;
+  stale?: number;
   skip?: Function;
   storage?: MercuriusCacheStorageMemory | MercuriusCacheStorageRedis;
   onDedupe?: Function;

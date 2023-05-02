@@ -217,6 +217,100 @@ test('When within the stale threshold return the cached value and refresh the ca
   }
 })
 
+test('Dynamically specify ttl with function', async ({ equal, same, teardown }) => {
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      cacheTime: Int
+    }
+  `
+
+  const resolvers = {
+    Query: {
+      async cacheTime (_) {
+        return 10
+      }
+    }
+  }
+
+  app.register(mercurius, {
+    schema,
+    resolvers
+  })
+
+  let misses = 0
+  let hits = 0
+
+  app.register(cache, {
+    onHit () {
+      hits++
+    },
+    onMiss () {
+      misses++
+    },
+    policy: {
+      Query: {
+        cacheTime: true
+      }
+    },
+    ttl: (result) => {
+      equal(result, 10)
+      return result || 2
+    }
+  })
+
+  let data = await query()
+
+  equal(misses, 1)
+  equal(hits, 0)
+  same(data, {
+    data: {
+      cacheTime: 10
+    }
+  })
+
+  clock.tick(5000)
+
+  data = await query()
+
+  equal(misses, 1)
+  equal(hits, 1)
+  same(data, {
+    data: {
+      cacheTime: 10
+    }
+  })
+
+  clock.tick(5000)
+
+  data = await query()
+
+  equal(misses, 2)
+  equal(hits, 1)
+  same(data, {
+    data: {
+      cacheTime: 10
+    }
+  })
+
+  async function query () {
+    const query = '{ cacheTime }'
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/graphql',
+      body: {
+        query
+      }
+    })
+
+    equal(res.statusCode, 200)
+    return res.json()
+  }
+})
+
 test('No TTL, do not use cache', async ({ equal, same, pass, plan, teardown }) => {
   plan(7)
 
