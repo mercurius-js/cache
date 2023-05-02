@@ -96,7 +96,7 @@ test('should get default storage.options.invalidation.referencesTTL as max of po
 test('should get default storage.options.invalidation.referencesTTL as max of policies and main ttl / invalidation as empty object', async (t) => {
   const options = {
     ttl: 1,
-    storage: { type: 'redis', options: { client: {}, invalidation: {} } },
+    storage: { type: 'redis', options: { client: {}, invalidation: true } },
     policy: {
       Query: {
         a: { ttl: 2, storage: { type: 'redis', options: { client: {} } } },
@@ -109,6 +109,80 @@ test('should get default storage.options.invalidation.referencesTTL as max of po
   const app = { log: 'the-logger' }
   const { storage } = validateOpts(app, options)
 
+  t.equal(storage.options.invalidation.referencesTTL, 6)
+})
+
+test('should not default storage.options.invalidation.referencesTTL when all ttls are functions / invalidation as boolean true', async (t) => {
+  const options = {
+    ttl: () => 1,
+    storage: { type: 'redis', options: { client: {}, invalidation: true } },
+    policy: {
+      Query: {
+        a: { ttl: () => 2, storage: { type: 'redis', options: { client: {} } } },
+        b: { ttl: () => 3, storage: { type: 'redis', options: { client: {} } } },
+        c: { ttl: () => 4, storage: { type: 'redis', options: { client: {} } } },
+        d: { ttl: () => 5, storage: { type: 'redis', options: { client: {} } } }
+      }
+    }
+  }
+  const app = { log: 'the-logger' }
+  t.throws(() => {
+    validateOpts(app, options)
+  }, '')
+})
+
+test('should not default storage.options.invalidation.referencesTTL when all ttls are functions / invalidation as empty object', async (t) => {
+  const options = {
+    ttl: () => 1,
+    storage: { type: 'redis', options: { client: {}, invalidation: {} } },
+    policy: {
+      Query: {
+        a: { ttl: () => 2, storage: { type: 'redis', options: { client: {} } } },
+        b: { ttl: () => 3, storage: { type: 'redis', options: { client: {} } } },
+        c: { ttl: () => 4, storage: { type: 'redis', options: { client: {} } } },
+        d: { ttl: () => 5, storage: { type: 'redis', options: { client: {} } } }
+      }
+    }
+  }
+  const app = { log: 'the-logger' }
+  t.throws(() => {
+    validateOpts(app, options)
+  }, '')
+})
+
+test('should default storage.options.invalidation.referencesTTL to max ttl when a mix of static and dynamic ttls are configured / invalidation as boolean true', async (t) => {
+  const options = {
+    ttl: () => 1,
+    storage: { type: 'redis', options: { client: {}, invalidation: true } },
+    policy: {
+      Query: {
+        a: { ttl: () => 2, storage: { type: 'redis', options: { client: {} } } },
+        b: { ttl: 3, storage: { type: 'redis', options: { client: {} } } },
+        c: { ttl: () => 4, storage: { type: 'redis', options: { client: {} } } },
+        d: { ttl: 1, storage: { type: 'redis', options: { client: {} } } }
+      }
+    }
+  }
+  const app = { log: 'the-logger' }
+  const { storage } = validateOpts(app, options)
+  t.equal(storage.options.invalidation.referencesTTL, 4)
+})
+
+test('should use explicitly defined referencesTTL', async (t) => {
+  const options = {
+    ttl: () => 1,
+    storage: { type: 'redis', options: { client: {}, invalidation: { referencesTTL: 6 } } },
+    policy: {
+      Query: {
+        a: { ttl: () => 2, storage: { type: 'redis', options: { client: {} } } },
+        b: { ttl: 3, storage: { type: 'redis', options: { client: {} } } },
+        c: { ttl: () => 4, storage: { type: 'redis', options: { client: {} } } },
+        d: { ttl: 1, storage: { type: 'redis', options: { client: {} } } }
+      }
+    }
+  }
+  const app = { log: 'the-logger' }
+  const { storage } = validateOpts(app, options)
   t.equal(storage.options.invalidation.referencesTTL, 6)
 })
 
