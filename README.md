@@ -128,7 +128,7 @@ Storage options are:
   - for `redis`
     - **client**: a redis client instance, mandatory. Should be an `ioredis` client or compatible.
     - **invalidation**: enable invalidation, see [documentation](#invalidation). Default is disabled.
-    - **invalidation.referencesTTL**: references TTL in seconds. Default is the max `ttl` between the main one and policies.
+    - **invalidation.referencesTTL**: references TTL in seconds. Default is the max static `ttl` between the main one and policies. If all ttls specified are functions then `referencesTTL` will need to be specified explictly.
     - **log**: logger instance `pino` compatible, default is the `app.log` instance.
 
     Example
