@@ -79,7 +79,7 @@ Example(s)
   ttl: 10
 ```
 
-...js
+```js
   ttl: (result) => !!result.importantProp ? 10 : 0
 ```
 
@@ -213,7 +213,7 @@ Example
   policy: {
     Query: {
       countries: {
-        ttl: 1440, // Query "countries" will be cached for 1 day
+        ttl: 86400, // Query "countries" will be cached for 1 day
         storage: { type: 'memory' }
       }
     }
