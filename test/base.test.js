@@ -529,6 +529,62 @@ test('clear the cache', async ({ equal, same, pass, plan, teardown }) => {
   }
 })
 
+test('clear the cache item in cache in case of wrong return type', async ({ equal, notSame, plan, teardown }) => {
+  plan(7)
+
+  let hits = 0
+
+  const app = fastify()
+  teardown(app.close.bind(app))
+
+  const schema = `
+    type Query {
+      add(x: Int, y: Int): Int
+      hello: String
+    }
+  `
+
+  const resolvers = {
+    Query: {
+      async add () {
+        hits++
+        return 'not a number'
+      }
+    }
+  }
+
+  app.register(mercurius, {
+    schema,
+    resolvers
+  })
+
+  app.register(cache, {
+    policy: {
+      Query: {
+        add: true
+      }
+    }
+  })
+
+  const query = '{ add(x: 2, y: 2) }'
+
+  for (let i = 0; i < 2; i++) {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/graphql',
+      body: {
+        query
+      }
+    })
+    equal(res.statusCode, 200)
+    const json = res.json()
+    notSame(json, undefined)
+    notSame(json, null)
+  }
+
+  equal(hits, 2)
+})
+
 test('missing policy', async (t) => {
   const app = fastify()
   app.register(mercurius)

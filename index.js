@@ -5,6 +5,8 @@ const { createCache } = require('async-cache-dedupe')
 const { validateOpts } = require('./lib/validation')
 const createReport = require('./lib/report')
 
+const AFFECTED_CACHE_KEYS = Symbol.for('AFFECTED_CACHE_KEYS')
+
 module.exports = fp(async function (app, opts) {
   const { all, policy, ttl, stale, skip, storage, onDedupe, onHit, onMiss, onSkip, onError, logInterval, logReport } = validateOpts(app, opts)
 
@@ -34,6 +36,14 @@ module.exports = fp(async function (app, opts) {
 
   app.addHook('onClose', () => {
     report && report.close()
+  })
+
+  app.graphql.addHook('onResolution', async (execution, ctx) => {
+    // in case of errors, invalidate cache keys created during the execution
+    if (execution.errors?.length) {
+      const invalidateCacheFunctions = ctx.reply[AFFECTED_CACHE_KEYS]
+      invalidateCacheFunctions && await Promise.all(invalidateCacheFunctions.map(fn => fn()))
+    }
   })
 
   if (app.graphqlGateway) {
@@ -185,7 +195,13 @@ function makeCachedResolver (prefix, fieldName, cache, originalFieldResolver, po
       return id
     }
   }, async function ({ self, arg, ctx, info }) {
-    return originalFieldResolver(self, arg, ctx, info)
+    const originalResult = await originalFieldResolver(self, arg, ctx, info)
+    // create invalidation cache function in case of wrong type result
+    ctx.reply[AFFECTED_CACHE_KEYS] = ctx.reply[AFFECTED_CACHE_KEYS] || []
+    ctx.reply[AFFECTED_CACHE_KEYS].push(function invalidateCacheItem () {
+      return cache.clear(name, { self, arg, ctx, info })
+    })
+    return originalResult
   })
 
   return async function (self, arg, ctx, info) {
