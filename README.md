@@ -722,6 +722,28 @@ Req/Bytes counts sampled once per second.
 125k requests in 10.03s, 43.7 MB read
 ```
 
+## Corner cases resolutions
+
+It could be possible, especially if we are working with Federation, to come across different return types, for instance, String instead of Int, etc. [Here](https://github.com/mercurius-js/cache/issues/128) is the relative issue.
+
+This situation should be possible only in a development environment before production. But in case we face this situation, there is possible workaround to follow to prevent Mercurius from returning the cached item instead of the real result.
+
+**Important** This solution must be implemented before going in production, when the item is cached the only way to exit from the situation is invalidate the cache or wait the expiration item.
+
+### Solution
+
+This solution uses the `onResolution` hook expose by Mercurius. If the response contains errors, the code invalidates the cache, using the `clear` method.
+
+```js
+app.graphql.addHook("onResolution", async (execution, ctx) => {
+  if (execution.errors) {
+    ctx.reply.log.error("invalidating cache");
+    await app.graphql.cache.clear();
+  }
+});
+```
+
+**N.B.** This solution invalidates all the cache not only the item that contains the error.
 
 ## License
 
