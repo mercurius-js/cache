@@ -722,28 +722,62 @@ Req/Bytes counts sampled once per second.
 125k requests in 10.03s, 43.7 MB read
 ```
 
-## Corner cases resolutions
+## More info about how this plugin works
+This plugin caches the resolver's results. The plugin has nothing to do with validating the schema, so if you have a resolver that returns a `String` but in your schema it indicates that the resolver returns an `Int`, the plugin will cache the `String`, and when you call the resolver again, the plugin will return the cached `String` instead of the `Int`. 
+As a result, the query will return a Schema Validation error and not the right result.
 
-It could be possible, especially when working with Federation, to encounter varying return types. For instance, one might come across a situation where a String is returned instead of an Int. [Here](https://github.com/mercurius-js/cache/issues/128) is the related issue.
 
-This situation is anticipated to arise primarily during development, before going into production. However, if confronted with this circumstance, there exists a viable workaround that can be employed to prevent Mercurius from returning the cached item instead of the actual result.
-
-**Important** This solution must be implemented before going into production. Once an item is cached, the only way to rectify the situation is either by invalidating the cache or awaiting the item's expiration.
-
-### Solution
-
-The solution uses the `onResolution` hook provided by Mercurius. If the response contains errors, the code invalidates the cache using the `clear` method.
-
+Here you can find an example of the problem.
 ```js
-app.graphql.addHook("onResolution", async (execution, ctx) => {
-  if (execution.errors) {
-    ctx.reply.log.error("invalidating cache");
-    await app.graphql.cache.clear();
+'use strict'
+
+const fastify = require('fastify')
+const mercurius = require('mercurius')
+const cache = require('mercurius-cache')
+
+const app = fastify({ logger: true })
+
+const schema = `
+  type Query {
+    add(x: Int, y: Int): Int  // <-- this is a Int
+    hello: String
   }
-});
+`
+
+const resolvers = {
+  Query: {
+    async add (_, { x, y }, { reply }) {
+      reply.log.info('add called')
+
+      return 'not a number' // <-- this is a String
+    }
+  }
+}
+
+app.register(mercurius, {
+  schema,
+  resolvers
+})
+
+
+// cache query "add" responses for 10 seconds
+app.register(cache, {
+  ttl: 10,
+  policy: {
+    Query: {
+      add: true
+      // note: it cache "add" but it doesn't cache "hello"
+    }
+  }
+})
+
+app.listen({ port: 3000, host: '127.0.0.1' })
 ```
 
-**N.B.** This solution invalidates the entire cache, not only the item that contains the error.
+If you come across this problem, to rectify the data in the cache, follow these instructions:
+
+1. Are you using an **In-Memory** cache? If yes, after the new deployment, the cache will be cleared, and everything will be ok.
+2. Are you using a **Redis** cache? If yes, after the new deployment, you manually invalidate the cache in Redis or wait for the TTL to expire.
 
 ## License
 
