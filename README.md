@@ -722,6 +722,54 @@ Req/Bytes counts sampled once per second.
 125k requests in 10.03s, 43.7 MB read
 ```
 
+## More info about how this plugin works
+This plugin caches the result of the resolver, but if the resolver returns a type incompatible with the schema return type, the plugin will cache the invalid return value. When you call the resolver again, the plugin will return the cached value, thereby caching the validation error.
+
+This issue may be exacerbated in a federation setup when you don't have full control over the implementation of federated schema and resolvers.
+
+Here you can find an example of the problem.
+```js
+'use strict'
+
+const fastify = require('fastify')
+const mercurius = require('mercurius')
+const cache = require('mercurius-cache')
+
+const app = fastify({ logger: true })
+
+const schema = `
+  type Query {
+    getNumber: Int
+  }
+`
+
+const resolvers = {
+  Query: {
+    async getNumber(_, __, { reply }) {
+      return "hello";
+    }
+  }
+}
+
+app.register(mercurius, {
+  schema,
+  resolvers
+})
+
+app.register(cache, {
+  ttl: 10,
+  policy: {
+    Query: {
+      getNumber: true
+    }
+  }
+})
+```
+
+If you come across this problem, you will first need to fix your code. Then you have two options:
+
+1. If you are you using an **in-memory** cache, it will be cleared at the next start of the application, so the impact of this issue will be limited
+2. If you are you using the **Redis** cache, you will need to manually invalidate the cache in Redis or wait for the TTL to expire
 
 ## License
 
