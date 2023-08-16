@@ -723,9 +723,9 @@ Req/Bytes counts sampled once per second.
 ```
 
 ## More info about how this plugin works
-This plugin caches the resolver's results. The plugin has nothing to do with validating the schema, so if you have a resolver that returns a `String` but in your schema it indicates that the resolver returns an `Int`, the plugin will cache the `String`, and when you call the resolver again, the plugin will return the cached `String` instead of the `Int`. 
-As a result, the query will return a Schema Validation error and not the right result.
+This plugin caches the result of the resolver, but if the resolver returns a type incompatible with the schema return type, the plugin will cache the invalid return value. When you call the resolver again, the plugin will return the cached value, thereby caching the validation error.
 
+This issue may be exacerbated in a federation setup when you don't have full control over the implementation of federated schema and resolvers.
 
 Here you can find an example of the problem.
 ```js
@@ -739,17 +739,14 @@ const app = fastify({ logger: true })
 
 const schema = `
   type Query {
-    add(x: Int, y: Int): Int  // <-- this is a Int
-    hello: String
+    getNumber: Int
   }
 `
 
 const resolvers = {
   Query: {
-    async add (_, { x, y }, { reply }) {
-      reply.log.info('add called')
-
-      return 'not a number' // <-- this is a String
+    async getNumber(_, __, { reply }) {
+      return "hello";
     }
   }
 }
@@ -759,25 +756,20 @@ app.register(mercurius, {
   resolvers
 })
 
-
-// cache query "add" responses for 10 seconds
 app.register(cache, {
   ttl: 10,
   policy: {
     Query: {
-      add: true
-      // note: it cache "add" but it doesn't cache "hello"
+      getNumber: true
     }
   }
 })
-
-app.listen({ port: 3000, host: '127.0.0.1' })
 ```
 
-If you come across this problem, to rectify the data in the cache, follow these instructions:
+If you come across this problem, you will first need to fix your code. Then you have two options:
 
-1. Are you using an **In-Memory** cache? If yes, after the new deployment, the cache will be cleared, and everything will be ok.
-2. Are you using a **Redis** cache? If yes, after the new deployment, you manually invalidate the cache in Redis or wait for the TTL to expire.
+1. If you are you using an **in-memory** cache, it will be cleared at the next start of the application, so the impact of this issue will be limited
+2. If you are you using the **Redis** cache, you will need to manually invalidate the cache in Redis or wait for the TTL to expire
 
 ## License
 
