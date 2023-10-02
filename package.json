@@ -49,7 +49,7 @@
     "directory": "./test/types"
   },
   "dependencies": {
-    "async-cache-dedupe": "^1.8.0",
+    "async-cache-dedupe": "^2.0.0",
     "fastify-plugin": "^4.5.0"
   },
   "precommit": "test"
