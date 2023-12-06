@@ -11,6 +11,82 @@ const { request } = require('./helper')
 
 const sleep = promisify(setTimeout)
 
+test('Report with non-default query type name', async ({ strictSame, plan, fail, teardown }) => {
+  plan(2)
+
+  let app = null
+  const stream = split(JSON.parse)
+  try {
+    app = fastify({
+      logger: {
+        stream
+      }
+    })
+  } catch (e) {
+    fail()
+  }
+
+  teardown(app.close.bind(app))
+
+  const clock = FakeTimers.install({
+    shouldAdvanceTime: true,
+    advanceTimeDelta: 100
+  })
+  teardown(() => clock.uninstall())
+
+  const schema = `
+    schema {
+      query: XQuery
+    }
+
+    type XQuery {
+      add(x: Int, y: Int): Int
+    }
+  `
+
+  const resolvers = {
+    XQuery: {
+      async add (_, { x, y }) {
+        return x + y
+      }
+    }
+  }
+
+  app.register(mercurius, {
+    schema,
+    resolvers
+  })
+
+  app.register(cache, {
+    ttl: 1,
+    policy: {
+      XQuery: {
+        add: true
+      }
+    },
+    logInterval: 3
+  })
+
+  const query = '{ add(x: 2, y: 2) }'
+
+  let data
+  await request({ app, query })
+  await request({ app, query })
+
+  clock.tick(1000)
+  await once(stream, 'data')
+
+  data = await once(stream, 'data')
+
+  strictSame(data.data, { 'XQuery.add': { dedupes: 0, hits: 1, misses: 1, skips: 0 } })
+
+  await clock.tick(3000)
+
+  data = await once(stream, 'data')
+
+  strictSame(data.data, { 'XQuery.add': { dedupes: 0, hits: 0, misses: 0, skips: 0 } })
+})
+
 test('Report with policy specified', async ({ strictSame, plan, fail, teardown }) => {
   plan(2)
 
