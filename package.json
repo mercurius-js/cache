@@ -42,7 +42,7 @@
     "typescript": "^5.2.2",
     "wait-on": "^7.0.1",
     "ws": "^8.14.2",
-    "@mercuriusjs/federation": "^2.0.0",
+    "@mercuriusjs/federation": "^3.0.0",
     "@mercuriusjs/gateway": "^2.0.0"
   },
   "tsd": {
