@@ -28,7 +28,7 @@
     "@fastify/pre-commit": "^2.0.2",
     "@sinonjs/fake-timers": "^11.1.0",
     "autocannon": "^7.12.0",
-    "concurrently": "^8.2.1",
+    "concurrently": "^9.0.0",
     "fastify": "^4.23.2",
     "graphql": "^16.8.1",
     "graphql-type-json": "^0.3.2",
