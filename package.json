@@ -18,7 +18,8 @@
     "graphql",
     "cache"
   ],
-  "author": "Matteo Collina <hello@matteocollina.com>", "license": "MIT",
+  "author": "Matteo Collina <hello@matteocollina.com>",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/mercurius-js/cache/issues"
   },
