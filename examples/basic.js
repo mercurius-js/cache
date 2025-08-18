@@ -40,7 +40,7 @@ app.register(cache, {
   }
 })
 
-app.listen(3000)
+app.listen({ port: 3000 })
 
 // Use the following to test
 // curl -X POST -H 'content-type: application/json' -d '{ "query": "{ add(x: 2, y: 2) }" }' localhost:3000/graphql
