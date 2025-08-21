@@ -1,7 +1,7 @@
 'use strict'
 
 const { promisify } = require('util')
-const { test } = require('tap')
+const { test } = require('node:test')
 const fastify = require('fastify')
 const mercurius = require('mercurius')
 const cache = require('..')
@@ -11,8 +11,8 @@ const { request } = require('./helper')
 
 const sleep = promisify(setTimeout)
 
-test('Report with non-default query type name', async ({ strictSame, plan, fail, teardown }) => {
-  plan(2)
+test('Report with non-default query type name', async (t) => {
+  t.plan(2)
 
   let app = null
   const stream = split(JSON.parse)
@@ -23,16 +23,16 @@ test('Report with non-default query type name', async ({ strictSame, plan, fail,
       }
     })
   } catch (e) {
-    fail()
+    t.assert.fail()
   }
 
-  teardown(app.close.bind(app))
+  t.after(() => app.close())
 
   const clock = FakeTimers.install({
     shouldAdvanceTime: true,
     advanceTimeDelta: 100
   })
-  teardown(() => clock.uninstall())
+  t.after(() => clock.uninstall())
 
   const schema = `
     schema {
@@ -78,17 +78,19 @@ test('Report with non-default query type name', async ({ strictSame, plan, fail,
 
   data = await once(stream, 'data')
 
-  strictSame(data.data, { 'XQuery.add': { dedupes: 0, hits: 1, misses: 1, skips: 0 } })
+  t.assert.deepStrictEqual(data.data, { 'XQuery.add': { dedupes: 0, hits: 1, misses: 1, skips: 0 } })
 
   await clock.tick(3000)
 
   data = await once(stream, 'data')
 
-  strictSame(data.data, { 'XQuery.add': { dedupes: 0, hits: 0, misses: 0, skips: 0 } })
+  t.assert.deepStrictEqual(data.data, {
+    'XQuery.add': { dedupes: 0, hits: 0, misses: 0, skips: 0 }
+  })
 })
 
-test('Report with policy specified', async ({ strictSame, plan, fail, teardown }) => {
-  plan(2)
+test('Report with policy specified', async (t) => {
+  t.plan(2)
 
   let app = null
   const stream = split(JSON.parse)
@@ -99,16 +101,16 @@ test('Report with policy specified', async ({ strictSame, plan, fail, teardown }
       }
     })
   } catch (e) {
-    fail()
+    t.assert.fail()
   }
 
-  teardown(app.close.bind(app))
+  t.after(() => app.close())
 
   const clock = FakeTimers.install({
     shouldAdvanceTime: true,
     advanceTimeDelta: 100
   })
-  teardown(() => clock.uninstall())
+  t.after(() => clock.uninstall())
 
   const schema = `
     type Query {
@@ -150,17 +152,19 @@ test('Report with policy specified', async ({ strictSame, plan, fail, teardown }
 
   data = await once(stream, 'data')
 
-  strictSame(data.data, { 'Query.add': { dedupes: 0, hits: 1, misses: 1, skips: 0 } })
+  t.assert.deepStrictEqual(data.data, { 'Query.add': { dedupes: 0, hits: 1, misses: 1, skips: 0 } })
 
   await clock.tick(3000)
 
   data = await once(stream, 'data')
 
-  strictSame(data.data, { 'Query.add': { dedupes: 0, hits: 0, misses: 0, skips: 0 } })
+  t.assert.deepStrictEqual(data.data, {
+    'Query.add': { dedupes: 0, hits: 0, misses: 0, skips: 0 }
+  })
 })
 
-test('Report with all specified', async ({ strictSame, plan, fail, teardown }) => {
-  plan(2)
+test('Report with all specified', async (t) => {
+  t.plan(2)
 
   let app = null
   const stream = split(JSON.parse)
@@ -171,16 +175,16 @@ test('Report with all specified', async ({ strictSame, plan, fail, teardown }) =
       }
     })
   } catch (e) {
-    fail()
+    t.assert.fail()
   }
 
-  teardown(app.close.bind(app))
+  t.after(() => app.close())
 
   const clock = FakeTimers.install({
     shouldAdvanceTime: true,
     advanceTimeDelta: 100
   })
-  teardown(() => clock.uninstall())
+  t.after(() => clock.uninstall())
 
   const schema = `
     type Query {
@@ -218,16 +222,18 @@ test('Report with all specified', async ({ strictSame, plan, fail, teardown }) =
 
   data = await once(stream, 'data')
 
-  strictSame(data.data, { 'Query.add': { dedupes: 0, hits: 1, misses: 1, skips: 0 } })
+  t.assert.deepStrictEqual(data.data, { 'Query.add': { dedupes: 0, hits: 1, misses: 1, skips: 0 } })
 
   clock.tick(3000)
   data = await once(stream, 'data')
 
-  strictSame(data.data, { 'Query.add': { dedupes: 0, hits: 0, misses: 0, skips: 0 } })
+  t.assert.deepStrictEqual(data.data, {
+    'Query.add': { dedupes: 0, hits: 0, misses: 0, skips: 0 }
+  })
 })
 
-test('Log skips correctly', async ({ strictSame, plan, fail, teardown }) => {
-  plan(2)
+test('Log skips correctly', async (t) => {
+  t.plan(2)
 
   let app = null
   const stream = split(JSON.parse)
@@ -238,16 +244,16 @@ test('Log skips correctly', async ({ strictSame, plan, fail, teardown }) => {
       }
     })
   } catch (e) {
-    fail()
+    t.assert.fail()
   }
 
-  teardown(app.close.bind(app))
+  t.after(() => app.close())
 
   const clock = FakeTimers.install({
     shouldAdvanceTime: true,
     advanceTimeDelta: 100
   })
-  teardown(() => clock.uninstall())
+  t.after(() => clock.uninstall())
 
   const schema = `
     type Query {
@@ -288,16 +294,18 @@ test('Log skips correctly', async ({ strictSame, plan, fail, teardown }) => {
 
   data = await once(stream, 'data')
 
-  strictSame(data.data, { 'Query.add': { dedupes: 0, hits: 0, misses: 0, skips: 2 } })
+  t.assert.deepStrictEqual(data.data, { 'Query.add': { dedupes: 0, hits: 0, misses: 0, skips: 2 } })
 
   clock.tick(3000)
   data = await once(stream, 'data')
 
-  strictSame(data.data, { 'Query.add': { dedupes: 0, hits: 0, misses: 0, skips: 0 } })
+  t.assert.deepStrictEqual(data.data, {
+    'Query.add': { dedupes: 0, hits: 0, misses: 0, skips: 0 }
+  })
 })
 
-test('Report using custom logReport function', async ({ type, plan, endAll, fail, teardown }) => {
-  plan(1)
+test('Report using custom logReport function', async (t) => {
+  t.plan(2)
 
   let app = null
   const stream = split(JSON.parse)
@@ -308,16 +316,16 @@ test('Report using custom logReport function', async ({ type, plan, endAll, fail
       }
     })
   } catch (e) {
-    fail()
+    t.assert.fail()
   }
 
-  teardown(app.close.bind(app))
+  t.after(() => app.close())
 
   const clock = FakeTimers.install({
     shouldAdvanceTime: true,
     advanceTimeDelta: 100
   })
-  teardown(() => clock.uninstall())
+  t.after(() => clock.uninstall())
 
   const schema = `
     type Query {
@@ -343,8 +351,7 @@ test('Report using custom logReport function', async ({ type, plan, endAll, fail
     all: true,
     logInterval: 1,
     logReport: (report) => {
-      type(report['Query.add'], 'object')
-      endAll()
+      t.assert.strictEqual(typeof report['Query.add'], 'object')
     }
   })
 
@@ -355,18 +362,17 @@ test('Report using custom logReport function', async ({ type, plan, endAll, fail
   await clock.nextAsync()
 
   await once(stream, 'data')
-  await once(stream, 'data')
 })
 
-test('Report using a custom type', async ({ plan, ok, teardown }) => {
-  plan(4)
+test('Report using a custom type', async (t) => {
+  t.plan(4)
   const app = fastify()
-  teardown(app.close.bind(app))
+  t.after(() => app.close())
   const clock = FakeTimers.install({
     shouldAdvanceTime: true,
     advanceTimeDelta: 100
   })
-  teardown(() => clock.uninstall())
+  t.after(() => clock.uninstall())
 
   const dogs = [{ name: 'Max' }, { name: 'Charlie' }, { name: 'Buddy' }, { name: 'Max' }]
   const owners = { Max: { name: 'Jennifer' }, Charlie: { name: 'Sarah' }, Buddy: { name: 'Tracy' } }
@@ -419,8 +425,8 @@ test('Report using a custom type', async ({ plan, ok, teardown }) => {
     ttl: 10,
     logInterval: 1,
     logReport: (report) => {
-      ok(report['Dog.owner'])
-      ok(report['Query.dogs'])
+      t.assert.ok(report['Dog.owner'])
+      t.assert.ok(report['Query.dogs'])
     },
     policy: {
       Dog: {
@@ -444,18 +450,18 @@ test('Report using a custom type', async ({ plan, ok, teardown }) => {
   await clock.nextAsync()
 })
 
-test('Report dedupes', async ({ strictSame, plan, fail, teardown, equal }) => {
-  plan(4)
+test('Report dedupes', async (t) => {
+  t.plan(4)
 
   let app = null
   const stream = split(JSON.parse)
   try {
     app = fastify({ logger: { stream } })
   } catch (e) {
-    fail()
+    t.assert.fail()
   }
 
-  teardown(app.close.bind(app))
+  t.after(() => app.close())
 
   const schema = `
     type Query {
@@ -482,12 +488,12 @@ test('Report dedupes', async ({ strictSame, plan, fail, teardown, equal }) => {
       }
     },
     onDedupe: (type, name) => {
-      equal(type, 'Query')
-      equal(name, 'add')
+      t.assert.strictEqual(type, 'Query')
+      t.assert.strictEqual(name, 'add')
     },
     logInterval: 1,
     logReport: (data) => {
-      strictSame(data, { 'Query.add': { dedupes: 2, hits: 0, misses: 1, skips: 0 } })
+      t.assert.deepStrictEqual(data, { 'Query.add': { dedupes: 2, hits: 0, misses: 1, skips: 0 } })
     }
   })
 
