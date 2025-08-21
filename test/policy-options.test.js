@@ -1,6 +1,6 @@
 'use strict'
 
-const { test, before, teardown, afterEach } = require('tap')
+const { test } = require('node:test')
 const fastify = require('fastify')
 const mercurius = require('mercurius')
 const FakeTimers = require('@sinonjs/fake-timers')
@@ -9,24 +9,26 @@ const cache = require('..')
 const { request } = require('./helper')
 
 let clock
-before(() => {
+test.before(() => {
   clock = FakeTimers.install({
     shouldAdvanceTime: true,
     advanceTimeDelta: 0
   })
 })
 
-afterEach(() => {
+test.afterEach(() => {
   clock.runAll()
 })
 
-teardown(() => {
+test.after(() => {
   clock.uninstall()
 })
 
-test('different cache while revalidate options for policies', async ({ equal, teardown, same }) => {
+test('different cache while revalidate options for policies', async (t) => {
+  t.plan(40)
+
   const app = fastify()
-  teardown(app.close.bind(app))
+  t.after(() => app.close())
 
   const schema = `
   type Query {
@@ -70,19 +72,19 @@ test('different cache while revalidate options for policies', async ({ equal, te
   let addData = await request({ app, query: '{ add(x: 1, y: 1) }' })
   let subData = await request({ app, query: '{ sub(x: 2, y: 2) }' })
 
-  equal(hits.add, 0)
-  equal(misses.add, 1)
-  equal(addCounter, 1)
-  same(addData, {
+  t.assert.strictEqual(hits.add, 0)
+  t.assert.strictEqual(misses.add, 1)
+  t.assert.strictEqual(addCounter, 1)
+  t.assert.deepStrictEqual(addData, {
     data: {
       add: 1
     }
   })
 
-  equal(hits.sub, 0)
-  equal(misses.sub, 1)
-  equal(subCounter, 1)
-  same(subData, {
+  t.assert.strictEqual(hits.sub, 0)
+  t.assert.strictEqual(misses.sub, 1)
+  t.assert.strictEqual(subCounter, 1)
+  t.assert.deepStrictEqual(subData, {
     data: {
       sub: 1
     }
@@ -93,19 +95,19 @@ test('different cache while revalidate options for policies', async ({ equal, te
   addData = await request({ app, query: '{ add(x: 1, y: 1) }' })
   subData = await request({ app, query: '{ sub(x: 2, y: 2) }' })
 
-  equal(hits.add, 1)
-  equal(misses.add, 1)
-  equal(addCounter, 1)
-  same(addData, {
+  t.assert.strictEqual(hits.add, 1)
+  t.assert.strictEqual(misses.add, 1)
+  t.assert.strictEqual(addCounter, 1)
+  t.assert.deepStrictEqual(addData, {
     data: {
       add: 1
     }
   })
 
-  equal(hits.sub, 1)
-  equal(misses.sub, 1)
-  equal(subCounter, 1)
-  same(subData, {
+  t.assert.strictEqual(hits.sub, 1)
+  t.assert.strictEqual(misses.sub, 1)
+  t.assert.strictEqual(subCounter, 1)
+  t.assert.deepStrictEqual(subData, {
     data: {
       sub: 1
     }
@@ -116,19 +118,19 @@ test('different cache while revalidate options for policies', async ({ equal, te
   addData = await request({ app, query: '{ add(x: 1, y: 1) }' })
   subData = await request({ app, query: '{ sub(x: 2, y: 2) }' })
 
-  equal(hits.add, 2)
-  equal(misses.add, 1)
-  equal(addCounter, 2)
-  same(addData, {
+  t.assert.strictEqual(hits.add, 2)
+  t.assert.strictEqual(misses.add, 1)
+  t.assert.strictEqual(addCounter, 2)
+  t.assert.deepStrictEqual(addData, {
     data: {
       add: 1
     }
   })
 
-  equal(hits.sub, 2)
-  equal(misses.sub, 1)
-  equal(subCounter, 1)
-  same(subData, {
+  t.assert.strictEqual(hits.sub, 2)
+  t.assert.strictEqual(misses.sub, 1)
+  t.assert.strictEqual(subCounter, 1)
+  t.assert.deepStrictEqual(subData, {
     data: {
       sub: 1
     }
@@ -137,19 +139,19 @@ test('different cache while revalidate options for policies', async ({ equal, te
   addData = await request({ app, query: '{ add(x: 1, y: 1) }' })
   subData = await request({ app, query: '{ sub(x: 2, y: 2) }' })
 
-  equal(hits.add, 3)
-  equal(misses.add, 1)
-  equal(addCounter, 2)
-  same(addData, {
+  t.assert.strictEqual(hits.add, 3)
+  t.assert.strictEqual(misses.add, 1)
+  t.assert.strictEqual(addCounter, 2)
+  t.assert.deepStrictEqual(addData, {
     data: {
       add: 2
     }
   })
 
-  equal(hits.sub, 3)
-  equal(misses.sub, 1)
-  equal(subCounter, 1)
-  same(subData, {
+  t.assert.strictEqual(hits.sub, 3)
+  t.assert.strictEqual(misses.sub, 1)
+  t.assert.strictEqual(subCounter, 1)
+  t.assert.deepStrictEqual(subData, {
     data: {
       sub: 1
     }
@@ -159,10 +161,10 @@ test('different cache while revalidate options for policies', async ({ equal, te
 
   subData = await request({ app, query: '{ sub(x: 2, y: 2) }' })
 
-  equal(hits.sub, 4)
-  equal(misses.sub, 1)
-  equal(subCounter, 2)
-  same(subData, {
+  t.assert.strictEqual(hits.sub, 4)
+  t.assert.strictEqual(misses.sub, 1)
+  t.assert.strictEqual(subCounter, 2)
+  t.assert.deepStrictEqual(subData, {
     data: {
       sub: 1
     }
@@ -170,19 +172,20 @@ test('different cache while revalidate options for policies', async ({ equal, te
 
   subData = await request({ app, query: '{ sub(x: 2, y: 2) }' })
 
-  equal(hits.sub, 5)
-  equal(misses.sub, 1)
-  equal(subCounter, 2)
-  same(subData, {
+  t.assert.strictEqual(hits.sub, 5)
+  t.assert.strictEqual(misses.sub, 1)
+  t.assert.strictEqual(subCounter, 2)
+  t.assert.deepStrictEqual(subData, {
     data: {
       sub: 2
     }
   })
 })
 
-test('cache different policies with different options / dynamic ttl', async ({ equal, teardown }) => {
+test('cache different policies with different options / dynamic ttl', async (t) => {
+  t.plan(4)
   const app = fastify()
-  teardown(app.close.bind(app))
+  t.after(() => app.close())
 
   const schema = `
   type Query {
@@ -227,16 +230,17 @@ test('cache different policies with different options / dynamic ttl', async ({ e
   await clock.tick(2000)
   await request({ app, query: '{ sub(x: 2, y: 2) }' })
 
-  equal(hits.add, 1)
-  equal(misses.add, 1)
+  t.assert.strictEqual(hits.add, 1)
+  t.assert.strictEqual(misses.add, 1)
 
-  equal(hits.sub, 0)
-  equal(misses.sub, 2)
+  t.assert.strictEqual(hits.sub, 0)
+  t.assert.strictEqual(misses.sub, 2)
 })
 
-test('cache different policies with different options / ttl', async ({ equal, teardown }) => {
+test('cache different policies with different options / ttl', async (t) => {
+  t.plan(4)
   const app = fastify()
-  teardown(app.close.bind(app))
+  t.after(() => app.close())
 
   const schema = `
   type Query {
@@ -281,16 +285,17 @@ test('cache different policies with different options / ttl', async ({ equal, te
   await clock.tick(2000)
   await request({ app, query: '{ sub(x: 2, y: 2) }' })
 
-  equal(hits.add, 1)
-  equal(misses.add, 1)
+  t.assert.strictEqual(hits.add, 1)
+  t.assert.strictEqual(misses.add, 1)
 
-  equal(hits.sub, 0)
-  equal(misses.sub, 2)
+  t.assert.strictEqual(hits.sub, 0)
+  t.assert.strictEqual(misses.sub, 2)
 })
 
-test('cache different policies with different options / storage', async ({ equal, teardown }) => {
+test('cache different policies with different options / storage', async (t) => {
+  t.plan(4)
   const app = fastify()
-  teardown(app.close.bind(app))
+  t.after(() => app.close())
 
   const schema = `
   type Query {
@@ -336,16 +341,17 @@ test('cache different policies with different options / storage', async ({ equal
   await request({ app, query: '{ sub(x: 2, y: 1) }' })
   await request({ app, query: '{ sub(x: 3, y: 1) }' })
 
-  equal(hits.add, 0, 'never hits the cache')
-  equal(misses.add, 0, 'never use the cache')
+  t.assert.strictEqual(hits.add, 0, 'never hits the cache')
+  t.assert.strictEqual(misses.add, 0, 'never use the cache')
 
-  equal(hits.sub, 0, 'never hits the cache')
-  equal(misses.sub, 0, 'never use the cache')
+  t.assert.strictEqual(hits.sub, 0, 'never hits the cache')
+  t.assert.strictEqual(misses.sub, 0, 'never use the cache')
 })
 
-test('cache different policies with different options / skip', async ({ equal, teardown }) => {
+test('cache different policies with different options / skip', async (t) => {
+  t.plan(9)
   const app = fastify()
-  teardown(app.close.bind(app))
+  t.after(() => app.close())
 
   const schema = `
   type Query {
@@ -403,22 +409,23 @@ test('cache different policies with different options / skip', async ({ equal, t
   await request({ app, query: '{ mul(x: 1, y: 1) }' })
   await request({ app, query: '{ mul(x: 10, y: 1) }' })
 
-  equal(hits.add, 0)
-  equal(misses.add, 0)
-  equal(skips.add, 3, 'always skipped')
+  t.assert.strictEqual(hits.add, 0)
+  t.assert.strictEqual(misses.add, 0)
+  t.assert.strictEqual(skips.add, 3, 'always skipped')
 
-  equal(hits.sub, 2, 'regular from cache')
-  equal(misses.sub, 2)
-  equal(skips.sub, 0)
+  t.assert.strictEqual(hits.sub, 2, 'regular from cache')
+  t.assert.strictEqual(misses.sub, 2)
+  t.assert.strictEqual(skips.sub, 0)
 
-  equal(hits.mul, 0)
-  equal(misses.mul, 1)
-  equal(skips.mul, 1, 'skipped if first arg > 9')
+  t.assert.strictEqual(hits.mul, 0)
+  t.assert.strictEqual(misses.mul, 1)
+  t.assert.strictEqual(skips.mul, 1, 'skipped if first arg > 9')
 })
 
-test('cache per user using extendKey option', async ({ equal, same, teardown }) => {
+test('cache per user using extendKey option', async (t) => {
+  t.plan(20)
   const app = fastify()
-  teardown(app.close.bind(app))
+  t.after(() => app.close())
 
   const schema = `
     type Query {
@@ -470,8 +477,8 @@ test('cache per user using extendKey option', async ({ equal, same, teardown }) 
         body: { query }
       })
 
-      equal(res.statusCode, 200)
-      same(res.json(), {
+      t.assert.strictEqual(res.statusCode, 200)
+      t.assert.deepStrictEqual(res.json(), {
         data: {
           hello: '?'
         }
@@ -485,8 +492,8 @@ test('cache per user using extendKey option', async ({ equal, same, teardown }) 
         body: { query }
       })
 
-      equal(res.statusCode, 200)
-      same(res.json(), {
+      t.assert.strictEqual(res.statusCode, 200)
+      t.assert.deepStrictEqual(res.json(), {
         data: {
           hello: 'Hello alice'
         }
@@ -500,8 +507,8 @@ test('cache per user using extendKey option', async ({ equal, same, teardown }) 
         body: { query }
       })
 
-      equal(res.statusCode, 200)
-      same(res.json(), {
+      t.assert.strictEqual(res.statusCode, 200)
+      t.assert.deepStrictEqual(res.json(), {
         data: {
           hello: 'Hello bob'
         }
@@ -509,6 +516,6 @@ test('cache per user using extendKey option', async ({ equal, same, teardown }) 
     }
   }
 
-  equal(misses, 3)
-  equal(hits, 6)
+  t.assert.strictEqual(misses, 3)
+  t.assert.strictEqual(hits, 6)
 })
