@@ -1,6 +1,6 @@
 'use strict'
 
-const t = require('tap')
+const { test } = require('node:test')
 const fastify = require('fastify')
 const mercurius = require('mercurius')
 const { GraphQLScalarType, Kind } = require('graphql')
@@ -12,7 +12,7 @@ const { request } = require('./helper')
 
 const redisClient = new Redis()
 
-t.teardown(async () => {
+test.after(async () => {
   await redisClient.quit()
 })
 
@@ -21,15 +21,15 @@ const storages = [
   { type: 'redis', options: { client: redisClient, invalidation: true } }
 ]
 
-t.test('works with custom scalar type', async t => {
+test('works with custom scalar type', async t => {
   t.beforeEach(async () => {
     await redisClient.flushall()
   })
 
   for (const storage of storages) {
-    t.test(`with ${storage.type} storage`, async t => {
+    await t.test(`with ${storage.type} storage`, async t => {
       const app = fastify()
-      t.teardown(app.close.bind(app))
+      t.after(() => app.close())
 
       const dateScalar = new GraphQLScalarType({
         name: 'Date',
@@ -80,29 +80,29 @@ t.test('works with custom scalar type', async t => {
 
       {
         const result = await request({ app, query })
-        t.same(result, { data: { events: [{ id, date }] } })
+        t.assert.deepStrictEqual(result, { data: { events: [{ id, date }] } })
       }
 
       {
         const result = await request({ app, query })
-        t.same(result, { data: { events: [{ id, date }] } })
+        t.assert.deepStrictEqual(result, { data: { events: [{ id, date }] } })
       }
 
-      t.equal(hits, 1)
-      t.equal(misses, 1)
+      t.assert.strictEqual(hits, 1)
+      t.assert.strictEqual(misses, 1)
     })
   }
 })
 
-t.test('works with 3rd party scalar type', async t => {
+test('works with 3rd party scalar type', async t => {
   t.beforeEach(async () => {
     await redisClient.flushall()
   })
 
   for (const storage of storages) {
-    t.test(`with ${storage.type} storage`, async t => {
+    await t.test(`with ${storage.type} storage`, async t => {
       const app = fastify()
-      t.teardown(app.close.bind(app))
+      t.after(() => app.close())
 
       const schema = `
       scalar JSON
@@ -143,16 +143,16 @@ t.test('works with 3rd party scalar type', async t => {
 
       {
         const result = await request({ app, query })
-        t.same(result, { data: { events } })
+        t.assert.deepStrictEqual(result, { data: { events } })
       }
 
       {
         const result = await request({ app, query })
-        t.same(result, { data: { events } })
+        t.assert.deepStrictEqual(result, { data: { events } })
       }
 
-      t.equal(hits, 1)
-      t.equal(misses, 1)
+      t.assert.strictEqual(hits, 1)
+      t.assert.strictEqual(misses, 1)
     })
   }
 })
