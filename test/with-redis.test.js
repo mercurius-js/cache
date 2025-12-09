@@ -76,7 +76,6 @@ describe('redis invalidation', async () => {
   }
 
   await test('should remove storage keys by references', async t => {
-    t.plan(7)
     // Setup Fastify and Mercurius
     let miss = 0
     const app = setupServer({
