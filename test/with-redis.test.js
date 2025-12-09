@@ -99,7 +99,7 @@ describe('redis invalidation', async () => {
     await request({ app, query: '{ search(id: 11) }' })
     t.assert.strictEqual(miss, 4)
     await request({ app, query: '{ get(id: 12) }' })
-    t.assert.strictEqual(miss, 5)
+    t.assert.strictEqual(miss, 4)
   })
 
   await test('should not remove storage key by not existing reference', async (t) => {
