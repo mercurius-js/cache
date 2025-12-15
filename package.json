@@ -5,7 +5,7 @@
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
-    "test": "standard | snazzy && node --test 'test/**/*.js' && tsd",
+    "test": "standard | snazzy && node --test test/*.js && tsd",
     "redis": "docker run -p 6379:6379 --rm redis:7",
     "lint:fix": "standard --fix"
   },
