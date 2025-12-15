@@ -1,6 +1,7 @@
 'use strict'
 
 const { test } = require('node:test')
+const { setTimeout } = require('node:timers/promises')
 const fastify = require('fastify')
 const mercurius = require('mercurius')
 const FakeTimers = require('@sinonjs/fake-timers')
@@ -739,9 +740,8 @@ test('using both policy and all options', async (t) => {
   await t.assert.rejects(app.ready())
 })
 
-test('skip the cache if operation is Subscription', (t, done) => {
+test('skip the cache if operation is Subscription', async (t) => {
   const app = fastify()
-  t.plan(2)
   t.after(() => app.close())
 
   const schema = `
@@ -785,47 +785,54 @@ test('skip the cache if operation is Subscription', (t, done) => {
     }
   })
 
-  app.listen({ port: 0 }, err => {
-    t.assert.ifError(err)
+  await app.listen({ port: 0 })
 
-    const ws = new WebSocket('ws://localhost:' + (app.server.address()).port + '/graphql', 'graphql-ws')
-    const client = WebSocket.createWebSocketStream(ws, { encoding: 'utf8', objectMode: true })
-    t.after(() => client.destroy())
-    client.setEncoding('utf8')
+  const ws = new WebSocket('ws://localhost:' + (app.server.address()).port + '/graphql', 'graphql-ws')
+  const client = WebSocket.createWebSocketStream(ws, { encoding: 'utf8', objectMode: true })
+  t.after(() => {
+    client.destroy()
+    ws.close()
+  })
+  client.setEncoding('utf8')
 
-    client.write(JSON.stringify({
-      type: 'connection_init'
-    }))
+  client.write(JSON.stringify({
+    type: 'connection_init'
+  }))
 
-    client.write(JSON.stringify({
-      id: 1,
-      type: 'start',
-      payload: {
-        query: `
-        subscription {
-          notificationAdded {
-            id
-            message
-          }
+  client.write(JSON.stringify({
+    id: 1,
+    type: 'start',
+    payload: {
+      query: `
+      subscription {
+        notificationAdded {
+          id
+          message
         }
-        `
       }
-    }))
+      `
+    }
+  }))
 
-    client.on('data', chunk => {
+  await new Promise((resolve, _reject) => {
+    client.on('data', (chunk) => {
       const data = JSON.parse(chunk)
       if (data.type === 'connection_ack') {
-        app.graphql.pubsub.publish({
-          topic: 'NOTIFICATION_ADDED',
-          payload: {
-            notificationAdded: {
-              id: 1,
-              message: 'test'
+        const p = setTimeout(100)
+        clock.tick(100)
+        p.then(() => {
+          app.graphql.pubsub.publish({
+            topic: 'NOTIFICATION_ADDED',
+            payload: {
+              notificationAdded: {
+                id: 1,
+                message: 'test'
+              }
             }
-          }
+          })
         })
-      } else {
-        t.assert.strictEqual(chunk, JSON.stringify({
+      } else if (data.type === 'data') {
+        t.assert.deepStrictEqual(data, {
           type: 'data',
           id: 1,
           payload: {
@@ -836,11 +843,12 @@ test('skip the cache if operation is Subscription', (t, done) => {
               }
             }
           }
-        }))
-        client.end()
-        done()
+        })
+        ws.close()
+        resolve()
       }
     })
+    client.on('error', _reject)
   })
 })
 

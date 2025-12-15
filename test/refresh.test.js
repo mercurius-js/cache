@@ -1,6 +1,6 @@
 'use strict'
 
-const { test } = require('tap')
+const { test } = require('node:test')
 const FakeTimers = require('@sinonjs/fake-timers')
 const { promisify } = require('util')
 const Fastify = require('fastify')
@@ -17,9 +17,10 @@ test('polling interval with a new schema should trigger refresh of schema policy
 
   const clock = FakeTimers.install({
     shouldAdvanceTime: true,
-    advanceTimeDelta: 40
+    advanceTimeDelta: 40,
+    toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date']
   })
-  t.teardown(() => clock.uninstall())
+  t.after(() => clock.uninstall())
 
   const user = {
     id: 'u1',
@@ -30,7 +31,7 @@ test('polling interval with a new schema should trigger refresh of schema policy
   const resolvers = {
     Query: {
       me: (root, args, context, info) => {
-        t.pass('resolver called')
+        t.assert.ok('resolver called')
         return user
       }
     }
@@ -38,7 +39,7 @@ test('polling interval with a new schema should trigger refresh of schema policy
 
   const userService = Fastify()
   const gateway = Fastify({ logger: { level: 'error' } })
-  t.teardown(async () => {
+  t.after(async () => {
     await gateway.close()
     await userService.close()
   })
@@ -98,7 +99,7 @@ test('polling interval with a new schema should trigger refresh of schema policy
       body: { query }
     })
 
-    t.same(res.json(), {
+    t.assert.deepStrictEqual(res.json(), {
       data: {
         me: {
           id: 'u1',
@@ -110,8 +111,6 @@ test('polling interval with a new schema should trigger refresh of schema policy
 
   await getMe()
   await getMe()
-
-  t.comment('userService.graphql.replaceSchema')
 
   userService.graphql.replaceSchema(
     buildFederationSchema(`
@@ -152,7 +151,7 @@ test('polling interval with a new schema should trigger refresh of schema policy
       body: { query }
     })
 
-    t.same(res.json(), {
+    t.assert.deepStrictEqual(res.json(), {
       data: {
         me: {
           id: 'u1',
@@ -163,7 +162,6 @@ test('polling interval with a new schema should trigger refresh of schema policy
     })
   }
 
-  t.comment('refreshed service calls')
   await getMeWithLastName()
   await getMeWithLastName()
 })
@@ -180,14 +178,14 @@ test('adds a mercuriusCache.refresh() method', async (t) => {
   const resolvers = {
     Query: {
       me: (root, args, context, info) => {
-        t.pass('resolver called')
+        t.assert.ok('resolver called')
         return user
       }
     }
   }
 
   const userService = Fastify()
-  t.teardown(async () => {
+  t.after(async () => {
     await userService.close()
   })
 
@@ -230,7 +228,7 @@ test('adds a mercuriusCache.refresh() method', async (t) => {
       body: { query }
     })
 
-    t.same(res.json(), {
+    t.assert.deepEqual(res.json(), {
       data: {
         me: {
           id: 'u1',
@@ -242,8 +240,6 @@ test('adds a mercuriusCache.refresh() method', async (t) => {
 
   await getMe()
   await getMe()
-
-  t.comment('userService.graphql.cache.refresh()')
 
   userService.graphql.replaceSchema(buildSchema(`
       type Query {
@@ -284,7 +280,7 @@ test('adds a mercuriusCache.refresh() method', async (t) => {
       body: { query }
     })
 
-    t.same(res.json(), {
+    t.assert.deepStrictEqual(res.json(), {
       data: {
         me: {
           id: 'u1',
@@ -295,7 +291,6 @@ test('adds a mercuriusCache.refresh() method', async (t) => {
     })
   }
 
-  t.comment('refreshed service calls')
   await getMeWithLastName()
   await getMeWithLastName()
 })
