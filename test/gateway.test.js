@@ -1,6 +1,6 @@
 'use strict'
 
-const { test } = require('tap')
+const { test } = require('node:test')
 const Fastify = require('fastify')
 const mercuriusGateway = require('@mercuriusjs/gateway')
 const { mercuriusFederationPlugin } = require('@mercuriusjs/federation')
@@ -86,13 +86,13 @@ async function createTestGatewayServer (t, cacheOpts) {
   const categoryServiceResolvers = {
     Query: {
       categories: (root, args, context, info) => {
-        t.pass('Query.categories resolved')
+        t.assert.ok('Query.categories resolved')
         return Object.values(categories)
       }
     },
     Category: {
       __resolveReference: (category, args, context, info) => {
-        t.pass('Category.__resolveReference')
+        t.assert.ok('Category.__resolveReference')
         return categories[category.id]
       }
     }
@@ -106,11 +106,11 @@ async function createTestGatewayServer (t, cacheOpts) {
   const postServiceResolvers = {
     Post: {
       __resolveReference: (post, args, context, info) => {
-        t.pass('Post.__resolveReference')
+        t.assert.ok('Post.__resolveReference')
         return posts[post.pid]
       },
       category: (post, args, context, info) => {
-        t.pass('Post.category')
+        t.assert.ok('Post.category')
         return {
           __typename: 'Category',
           id: post.categoryId
@@ -119,7 +119,7 @@ async function createTestGatewayServer (t, cacheOpts) {
     },
     Category: {
       topPosts: (category, { count }, context, info) => {
-        t.pass('Category.topPosts')
+        t.assert.ok('Category.topPosts')
         return Object.values(posts)
           .filter((p) => p.categoryId === category.id)
           .slice(0, count)
@@ -127,7 +127,7 @@ async function createTestGatewayServer (t, cacheOpts) {
     },
     Query: {
       topPosts: (root, { count = 2 }) => {
-        t.pass('Query.topPosts')
+        t.assert.ok('Query.topPosts')
         return Object.values(posts).slice(0, count)
       }
     }
@@ -139,7 +139,7 @@ async function createTestGatewayServer (t, cacheOpts) {
   )
 
   const gateway = Fastify()
-  t.teardown(async () => {
+  t.after(async () => {
     await gateway.close()
     await categoryService.close()
     await postService.close()
@@ -266,8 +266,6 @@ test('gateway - should cache it all', async (t) => {
     }
   }
 
-  t.comment('first request')
-
   {
     const res = await app.inject({
       method: 'POST',
@@ -275,11 +273,9 @@ test('gateway - should cache it all', async (t) => {
       body: { query }
     })
 
-    t.same(res.json(), expected)
+    t.assert.deepStrictEqual(res.json(), expected)
   }
 
-  t.comment('second request')
-
   {
     const res = await app.inject({
       method: 'POST',
@@ -287,7 +283,7 @@ test('gateway - should cache it all', async (t) => {
       body: { query }
     })
 
-    t.same(res.json(), expected)
+    t.assert.deepStrictEqual(res.json(), expected)
   }
 })
 
@@ -418,8 +414,6 @@ test('gateway - should let different fields in the query ignore the cache', asyn
     }
   }
 
-  t.comment('first request')
-
   {
     const res = await app.inject({
       method: 'POST',
@@ -427,10 +421,8 @@ test('gateway - should let different fields in the query ignore the cache', asyn
       body: { query: query1 }
     })
 
-    t.same(res.json(), expected1)
+    t.assert.deepStrictEqual(res.json(), expected1)
   }
-
-  t.comment('second request')
 
   {
     const res = await app.inject({
@@ -439,6 +431,6 @@ test('gateway - should let different fields in the query ignore the cache', asyn
       body: { query: query2 }
     })
 
-    t.same(res.json(), expected2)
+    t.assert.deepStrictEqual(res.json(), expected2)
   }
 })
