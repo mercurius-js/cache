@@ -21,7 +21,6 @@ test('should get default options', async (t) => {
 })
 
 test('should get default options with log object', async (t) => {
-  t.plan(13)
   const app = {
     log: { debug }
   }

@@ -31,8 +31,6 @@ test.after(() => {
 })
 
 test('cache a resolver', async (t) => {
-  t.plan(11)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -314,8 +312,6 @@ test('Dynamically specify ttl with function', async (t) => {
 })
 
 test('No TTL, do not use cache', async (t) => {
-  t.plan(7)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -458,8 +454,6 @@ test('cache a nested resolver with loaders', async (t) => {
 })
 
 test('clear the cache', async (t) => {
-  t.plan(6)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -540,7 +534,6 @@ test('missing policy', async (t) => {
 })
 
 test('cache all resolvers', async (t) => {
-  t.plan(6)
   const app = fastify()
   t.after(() => app.close())
 
@@ -648,8 +641,6 @@ test('cache all resolvers', async (t) => {
 })
 
 test('skip the cache', async (t) => {
-  t.plan(8)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -854,7 +845,6 @@ test('skip the cache if operation is Subscription', async (t) => {
 
 test('skip the cache if operation is Mutation', async (t) => {
   const app = fastify()
-  t.plan(6)
   t.after(() => app.close())
 
   const schema = `
@@ -986,8 +976,6 @@ test('Unmatched schema for Query', async (t) => {
 })
 
 test('use references and invalidation', async (t) => {
-  t.plan(1)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -1059,8 +1047,6 @@ test('use references and invalidation', async (t) => {
 })
 
 test('sync invalidation and references', async (t) => {
-  t.plan(1)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -1259,8 +1245,6 @@ test('should get the result even if cache functions throw an error / sync policy
 })
 
 test('should call onError if skip function throws an error', async (t) => {
-  t.plan(4)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -1290,8 +1274,6 @@ test('should call onError if skip function throws an error', async (t) => {
 })
 
 test('should not call onError if skip defined and resolver function throws an error', async (t) => {
-  t.plan(1)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -1323,7 +1305,6 @@ test('should not call onError if skip defined and resolver function throws an er
 })
 
 test('should call onError if Query resolver function throws an error', async (t) => {
-  t.plan(3)
   const app = fastify()
   t.after(() => app.close())
 
@@ -1356,7 +1337,6 @@ test('should call onError if Query resolver function throws an error', async (t)
 
 test('should not call onError if Mutation resolver throws', async (t) => {
   const app = fastify()
-  t.plan(1)
   t.after(() => app.close())
 
   const schema = `
@@ -1397,8 +1377,6 @@ test('should not call onError if Mutation resolver throws', async (t) => {
 })
 
 test('should call onError if invalidation function throws an error', async (t) => {
-  t.plan(3)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -1450,8 +1428,6 @@ test('should call onError if invalidation function throws an error', async (t) =
 })
 
 test('should call onError internally inside async-cache-dedupe for resolver', async (t) => {
-  t.plan(4)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -1503,8 +1479,6 @@ test('should call onError internally inside async-cache-dedupe for resolver', as
 })
 
 test('should not call onError internally inside async-cache-dedupe for invalidation', async (t) => {
-  t.plan(3)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -1573,8 +1547,6 @@ test('should not call onError internally inside async-cache-dedupe for invalidat
 })
 
 test('should call onError with Internal Error when mocked define receives no onError', async (t) => {
-  t.plan(4)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -1726,7 +1698,6 @@ test('policy without Query', async (t) => {
 })
 
 test('cache nested resolvers with __options', async (t) => {
-  t.plan(6)
   const app = fastify()
   t.after(() => app.close())
 

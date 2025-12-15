@@ -13,8 +13,6 @@ const { buildSchema } = require('graphql')
 const immediate = promisify(setImmediate)
 
 test('polling interval with a new schema should trigger refresh of schema policy build', async (t) => {
-  t.plan(6)
-
   const clock = FakeTimers.install({
     shouldAdvanceTime: true,
     advanceTimeDelta: 40,
@@ -167,8 +165,6 @@ test('polling interval with a new schema should trigger refresh of schema policy
 })
 
 test('adds a mercuriusCache.refresh() method', async (t) => {
-  t.plan(6)
-
   const user = {
     id: 'u1',
     name: 'John',

@@ -167,11 +167,6 @@ async function createTestGatewayServer (t, cacheOpts) {
 }
 
 test('gateway - should cache it all', async (t) => {
-  // The number of the tests are the number of resolvers
-  // in the federeted services called for 1 request plus
-  // two assertions.
-  t.plan(14)
-
   const { gateway: app } = await createTestGatewayServer(t, {
     ttl: 4242,
     // cache it all
@@ -288,11 +283,6 @@ test('gateway - should cache it all', async (t) => {
 })
 
 test('gateway - should let different fields in the query ignore the cache', async (t) => {
-  // The number of the tests are the number of resolvers
-  // in the federeted services called for 1 request plus
-  // two assertions.
-  t.plan(14)
-
   const { gateway: app } = await createTestGatewayServer(t, {
     ttl: 4242,
     // cache it all

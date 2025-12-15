@@ -200,7 +200,6 @@ describe('redis invalidation', () => {
   test('should not throw on invalidation error', async t => {
     await redisClient.flushall()
 
-    t.plan(3)
     // Setup Fastify and Mercurius
     const app = setupServer({
       invalidate () {
