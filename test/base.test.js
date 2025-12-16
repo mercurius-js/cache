@@ -1,6 +1,7 @@
 'use strict'
 
 const { test } = require('node:test')
+const { setTimeout } = require('node:timers/promises')
 const fastify = require('fastify')
 const mercurius = require('mercurius')
 const FakeTimers = require('@sinonjs/fake-timers')
@@ -30,8 +31,6 @@ test.after(() => {
 })
 
 test('cache a resolver', async (t) => {
-  t.plan(11)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -313,8 +312,6 @@ test('Dynamically specify ttl with function', async (t) => {
 })
 
 test('No TTL, do not use cache', async (t) => {
-  t.plan(7)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -457,8 +454,6 @@ test('cache a nested resolver with loaders', async (t) => {
 })
 
 test('clear the cache', async (t) => {
-  t.plan(6)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -539,7 +534,6 @@ test('missing policy', async (t) => {
 })
 
 test('cache all resolvers', async (t) => {
-  t.plan(6)
   const app = fastify()
   t.after(() => app.close())
 
@@ -647,8 +641,6 @@ test('cache all resolvers', async (t) => {
 })
 
 test('skip the cache', async (t) => {
-  t.plan(8)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -739,9 +731,8 @@ test('using both policy and all options', async (t) => {
   await t.assert.rejects(app.ready())
 })
 
-test('skip the cache if operation is Subscription', (t, done) => {
+test('skip the cache if operation is Subscription', async (t) => {
   const app = fastify()
-  t.plan(2)
   t.after(() => app.close())
 
   const schema = `
@@ -785,47 +776,54 @@ test('skip the cache if operation is Subscription', (t, done) => {
     }
   })
 
-  app.listen({ port: 0 }, err => {
-    t.assert.ifError(err)
+  await app.listen({ port: 0 })
 
-    const ws = new WebSocket('ws://localhost:' + (app.server.address()).port + '/graphql', 'graphql-ws')
-    const client = WebSocket.createWebSocketStream(ws, { encoding: 'utf8', objectMode: true })
-    t.after(() => client.destroy())
-    client.setEncoding('utf8')
+  const ws = new WebSocket('ws://localhost:' + (app.server.address()).port + '/graphql', 'graphql-ws')
+  const client = WebSocket.createWebSocketStream(ws, { encoding: 'utf8', objectMode: true })
+  t.after(() => {
+    client.destroy()
+    ws.close()
+  })
+  client.setEncoding('utf8')
 
-    client.write(JSON.stringify({
-      type: 'connection_init'
-    }))
+  client.write(JSON.stringify({
+    type: 'connection_init'
+  }))
 
-    client.write(JSON.stringify({
-      id: 1,
-      type: 'start',
-      payload: {
-        query: `
-        subscription {
-          notificationAdded {
-            id
-            message
-          }
+  client.write(JSON.stringify({
+    id: 1,
+    type: 'start',
+    payload: {
+      query: `
+      subscription {
+        notificationAdded {
+          id
+          message
         }
-        `
       }
-    }))
+      `
+    }
+  }))
 
-    client.on('data', chunk => {
+  await new Promise((resolve, _reject) => {
+    client.on('data', (chunk) => {
       const data = JSON.parse(chunk)
       if (data.type === 'connection_ack') {
-        app.graphql.pubsub.publish({
-          topic: 'NOTIFICATION_ADDED',
-          payload: {
-            notificationAdded: {
-              id: 1,
-              message: 'test'
+        const p = setTimeout(100)
+        clock.tick(100)
+        p.then(() => {
+          app.graphql.pubsub.publish({
+            topic: 'NOTIFICATION_ADDED',
+            payload: {
+              notificationAdded: {
+                id: 1,
+                message: 'test'
+              }
             }
-          }
+          })
         })
-      } else {
-        t.assert.strictEqual(chunk, JSON.stringify({
+      } else if (data.type === 'data') {
+        t.assert.deepStrictEqual(data, {
           type: 'data',
           id: 1,
           payload: {
@@ -836,17 +834,17 @@ test('skip the cache if operation is Subscription', (t, done) => {
               }
             }
           }
-        }))
-        client.end()
-        done()
+        })
+        ws.close()
+        resolve()
       }
     })
+    client.on('error', _reject)
   })
 })
 
 test('skip the cache if operation is Mutation', async (t) => {
   const app = fastify()
-  t.plan(6)
   t.after(() => app.close())
 
   const schema = `
@@ -978,8 +976,6 @@ test('Unmatched schema for Query', async (t) => {
 })
 
 test('use references and invalidation', async (t) => {
-  t.plan(1)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -1051,8 +1047,6 @@ test('use references and invalidation', async (t) => {
 })
 
 test('sync invalidation and references', async (t) => {
-  t.plan(1)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -1251,8 +1245,6 @@ test('should get the result even if cache functions throw an error / sync policy
 })
 
 test('should call onError if skip function throws an error', async (t) => {
-  t.plan(4)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -1282,8 +1274,6 @@ test('should call onError if skip function throws an error', async (t) => {
 })
 
 test('should not call onError if skip defined and resolver function throws an error', async (t) => {
-  t.plan(1)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -1315,7 +1305,6 @@ test('should not call onError if skip defined and resolver function throws an er
 })
 
 test('should call onError if Query resolver function throws an error', async (t) => {
-  t.plan(3)
   const app = fastify()
   t.after(() => app.close())
 
@@ -1348,7 +1337,6 @@ test('should call onError if Query resolver function throws an error', async (t)
 
 test('should not call onError if Mutation resolver throws', async (t) => {
   const app = fastify()
-  t.plan(1)
   t.after(() => app.close())
 
   const schema = `
@@ -1389,8 +1377,6 @@ test('should not call onError if Mutation resolver throws', async (t) => {
 })
 
 test('should call onError if invalidation function throws an error', async (t) => {
-  t.plan(3)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -1442,8 +1428,6 @@ test('should call onError if invalidation function throws an error', async (t) =
 })
 
 test('should call onError internally inside async-cache-dedupe for resolver', async (t) => {
-  t.plan(4)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -1495,8 +1479,6 @@ test('should call onError internally inside async-cache-dedupe for resolver', as
 })
 
 test('should not call onError internally inside async-cache-dedupe for invalidation', async (t) => {
-  t.plan(3)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -1565,8 +1547,6 @@ test('should not call onError internally inside async-cache-dedupe for invalidat
 })
 
 test('should call onError with Internal Error when mocked define receives no onError', async (t) => {
-  t.plan(4)
-
   const app = fastify()
   t.after(() => app.close())
 
@@ -1718,7 +1698,6 @@ test('policy without Query', async (t) => {
 })
 
 test('cache nested resolvers with __options', async (t) => {
-  t.plan(6)
   const app = fastify()
   t.after(() => app.close())
 

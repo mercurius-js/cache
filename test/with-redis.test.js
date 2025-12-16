@@ -1,6 +1,6 @@
 'use strict'
 
-const { test, teardown, beforeEach } = require('tap')
+const { test, after, describe } = require('node:test')
 const fastify = require('fastify')
 const mercurius = require('mercurius')
 const Redis = require('ioredis')
@@ -9,15 +9,11 @@ const { request } = require('./helper')
 
 const redisClient = new Redis()
 
-teardown(async () => {
+after(async () => {
   await redisClient.quit()
 })
 
-beforeEach(async () => {
-  await redisClient.flushall()
-})
-
-test('redis invalidation', async () => {
+describe('redis invalidation', () => {
   const setupServer = ({ onMiss, onHit, invalidate, onError, t }) => {
     const schema = `
       type Query {
@@ -44,7 +40,7 @@ test('redis invalidation', async () => {
       }
     }
     const app = fastify()
-    t.teardown(app.close.bind(app))
+    t.after(() => app.close())
     app.register(mercurius, { schema, resolvers })
     // Setup Cache
     app.register(cache, {
@@ -76,6 +72,8 @@ test('redis invalidation', async () => {
   }
 
   test('should remove storage keys by references', async t => {
+    await redisClient.flushall()
+
     // Setup Fastify and Mercurius
     let miss = 0
     const app = setupServer({
@@ -85,24 +83,26 @@ test('redis invalidation', async () => {
     })
     // Cache the follwoing
     await request({ app, query: '{ get(id: 11) }' })
-    t.equal(miss, 1)
+    t.assert.strictEqual(miss, 1)
     await request({ app, query: '{ get(id: 12) }' })
-    t.equal(miss, 2)
+    t.assert.strictEqual(miss, 2)
     await request({ app, query: '{ search(id: 11) }' })
-    t.equal(miss, 3)
+    t.assert.strictEqual(miss, 3)
     // Request a mutation
     await request({ app, query: 'mutation { set(id: 11) }' })
-    t.equal(miss, 3)
+    t.assert.strictEqual(miss, 3)
     // 'get:11' should not be present in cache anymore
     await request({ app, query: '{ get(id: 11) }' })
-    t.equal(miss, 4)
+    t.assert.strictEqual(miss, 4)
     await request({ app, query: '{ search(id: 11) }' })
-    t.equal(miss, 4)
+    t.assert.strictEqual(miss, 4)
     await request({ app, query: '{ get(id: 12) }' })
-    t.equal(miss, 4)
+    t.assert.strictEqual(miss, 4)
   })
 
   test('should not remove storage key by not existing reference', async t => {
+    await redisClient.flushall()
+
     // Setup Fastify and Mercurius
     let miss = 0
     const app = setupServer({
@@ -112,24 +112,26 @@ test('redis invalidation', async () => {
     })
     // Cache the follwoing
     await request({ app, query: '{ get(id: 11) }' })
-    t.equal(miss, 1)
+    t.assert.strictEqual(miss, 1)
     await request({ app, query: '{ get(id: 12) }' })
-    t.equal(miss, 2)
+    t.assert.strictEqual(miss, 2)
     await request({ app, query: '{ search(id: 11) }' })
-    t.equal(miss, 3)
+    t.assert.strictEqual(miss, 3)
     // Request a mutation
     await request({ app, query: 'mutation { set(id: 11) }' })
-    t.equal(miss, 3)
+    t.assert.strictEqual(miss, 3)
     // 'get:11' should be still in cache
     await request({ app, query: '{ get(id: 11) }' })
-    t.equal(miss, 3)
+    t.assert.strictEqual(miss, 3)
     await request({ app, query: '{ search(id: 11) }' })
-    t.equal(miss, 3)
+    t.assert.strictEqual(miss, 3)
     await request({ app, query: '{ get(id: 12) }' })
-    t.equal(miss, 3)
+    t.assert.strictEqual(miss, 3)
   })
 
   test('should invalidate more than one reference at once', async t => {
+    await redisClient.flushall()
+
     // Setup Fastify and Mercurius
     let miss = 0
     const app = setupServer({
@@ -138,24 +140,26 @@ test('redis invalidation', async () => {
     })
     // Cache the follwoing
     await request({ app, query: '{ get(id: 11) }' })
-    t.equal(miss, 1)
+    t.assert.strictEqual(miss, 1)
     await request({ app, query: '{ get(id: 12) }' })
-    t.equal(miss, 2)
+    t.assert.strictEqual(miss, 2)
     await request({ app, query: '{ search(id: 11) }' })
-    t.equal(miss, 3)
+    t.assert.strictEqual(miss, 3)
     // Request a mutation
     await request({ app, query: 'mutation { set(id: 11) }' })
-    t.equal(miss, 3)
+    t.assert.strictEqual(miss, 3)
     // All 'get' should not be present in cache anymore
     await request({ app, query: '{ get(id: 11) }' })
-    t.equal(miss, 4)
+    t.assert.strictEqual(miss, 4)
     await request({ app, query: '{ search(id: 11) }' })
-    t.equal(miss, 4)
+    t.assert.strictEqual(miss, 4)
     await request({ app, query: '{ get(id: 12) }' })
-    t.equal(miss, 5)
+    t.assert.strictEqual(miss, 5)
   })
 
   test('should remove storage keys by references, but not the ones still alive', async t => {
+    await redisClient.flushall()
+
     // Setup Fastify and Mercurius
     let failHit = false
     const app = setupServer({
@@ -166,24 +170,24 @@ test('redis invalidation', async () => {
     })
     // Run the request and cache it
     await request({ app, query: '{ get(id: 11) }' })
-    t.equal(
+    t.assert.strictEqual(
       await redisClient.get((await redisClient.smembers('r:get:11'))[0]),
       '"get 11"'
     )
     await request({ app, query: '{ get(id: 12) }' })
-    t.equal(
+    t.assert.strictEqual(
       await redisClient.get((await redisClient.smembers('r:get:12'))[0]),
       '"get 12"'
     )
     await request({ app, query: '{ search(id: 11) }' })
-    t.equal(
+    t.assert.strictEqual(
       await redisClient.get((await redisClient.smembers('r:search:11'))[0]),
       '"search 11"'
     )
     // Request a mutation, invalidate 'gets'
     await request({ app, query: 'mutation { set(id: 11) }' })
     // Check the references of 'searchs', should still be there
-    t.equal(
+    t.assert.strictEqual(
       await redisClient.get((await redisClient.smembers('r:search:11'))[0]),
       '"search 11"'
     )
@@ -194,16 +198,17 @@ test('redis invalidation', async () => {
   })
 
   test('should not throw on invalidation error', async t => {
-    t.plan(3)
+    await redisClient.flushall()
+
     // Setup Fastify and Mercurius
     const app = setupServer({
       invalidate () {
         throw new Error('Kaboom')
       },
       onError (type, fieldName, error) {
-        t.equal(type, 'Mutation')
-        t.equal(fieldName, 'set')
-        t.equal(error.message, 'Kaboom')
+        t.assert.strictEqual(type, 'Mutation')
+        t.assert.strictEqual(fieldName, 'set')
+        t.assert.strictEqual(error.message, 'Kaboom')
       },
       t
     })
@@ -213,15 +218,13 @@ test('redis invalidation', async () => {
   })
 })
 
-test('policy options', async t => {
-  test('custom key', async t => {
-    t.beforeEach(async () => {
+describe('policy options', () => {
+  describe('custom key', () => {
+    test('should be able to use a custom key function, without fields', async t => {
       await redisClient.flushall()
-    })
 
-    t.test('should be able to use a custom key function, without fields', async t => {
       const app = fastify()
-      t.teardown(app.close.bind(app))
+      t.after(() => app.close())
 
       const schema = `
     type Query {
@@ -254,18 +257,20 @@ test('policy options', async t => {
       })
 
       await request({ app, query: '{ add(x: 1, y: 1) }' })
-      t.equal(await redisClient.get('Query.add~1+1'), '2')
+      t.assert.strictEqual(await redisClient.get('Query.add~1+1'), '2')
 
       await request({ app, query: '{ sub(x: 2, y: 2) }' })
-      t.equal(await redisClient.get('Query.sub~2-2'), '0')
+      t.assert.strictEqual(await redisClient.get('Query.sub~2-2'), '0')
 
       await request({ app, query: '{ mul(x: 3, y: 3) }' })
-      t.equal(await redisClient.get('Query.mul~3*3'), '9')
+      t.assert.strictEqual(await redisClient.get('Query.mul~3*3'), '9')
     })
 
-    t.test('should be able to use a custom key function, with fields without selection', async t => {
+    test('should be able to use a custom key function, with fields without selection', async t => {
+      await redisClient.flushall()
+
       const app = fastify()
-      t.teardown(app.close.bind(app))
+      t.after(() => app.close())
 
       const schema = `
       type Query {
@@ -322,30 +327,32 @@ test('policy options', async t => {
       })
 
       // use key and store in cache the user
-      t.same(await request({ app, query: '{ getUser(id: "a1") { name, lastName} }' }), {
+      t.assert.deepStrictEqual(await request({ app, query: '{ getUser(id: "a1") { name, lastName} }' }), {
         data: { getUser: { name: 'Angus', lastName: 'Young' } }
       })
-      t.equal(await redisClient.get('Query.getUser~a1'), JSON.stringify({ id: 'a1', lastName: 'Young', name: 'Angus' }))
+      t.assert.strictEqual(await redisClient.get('Query.getUser~a1'), JSON.stringify({ id: 'a1', lastName: 'Young', name: 'Angus' }))
 
       // use key and get the user from cache
-      t.same(await request({ app, query: '{ getUser(id: "a1") { id } }' }), {
+      t.assert.deepStrictEqual(await request({ app, query: '{ getUser(id: "a1") { id } }' }), {
         data: { getUser: { id: 'a1' } }
       })
-      t.equal(hits.getUser, 1)
+      t.assert.strictEqual(hits.getUser, 1)
 
       // query users
-      t.same(await request({ app, query: '{ getUsers(name: "Brian") { id, name, lastName} }' }), {
+      t.assert.deepStrictEqual(await request({ app, query: '{ getUsers(name: "Brian") { id, name, lastName} }' }), {
         data: { getUsers: [{ id: 'd4', name: 'Brian', lastName: 'Johnson' }] }
       })
-      t.equal(await redisClient.get('Query.getUsers~Brian,*'), JSON.stringify([{ id: 'd4', lastName: 'Johnson', name: 'Brian' }]))
+      t.assert.strictEqual(await redisClient.get('Query.getUsers~Brian,*'), JSON.stringify([{ id: 'd4', lastName: 'Johnson', name: 'Brian' }]))
 
-      t.same(await request({ app, query: '{ getUsers(name: "Brian") { name } }' }), {
+      t.assert.deepStrictEqual(await request({ app, query: '{ getUsers(name: "Brian") { name } }' }), {
         data: { getUsers: [{ name: 'Brian' }] }
       })
-      t.equal(hits.getUsers, 1)
+      t.assert.strictEqual(hits.getUsers, 1)
     })
 
     test('should be able to use a custom key function, with fields selection', async t => {
+      await redisClient.flushall()
+
       function selectedFields (info) {
         const fields = []
         for (let i = 0; i < info.fieldNodes.length; i++) {
@@ -361,7 +368,7 @@ test('policy options', async t => {
         return fields
       }
       const app = fastify()
-      t.teardown(app.close.bind(app))
+      t.after(() => app.close())
 
       const schema = `
       type Query {
@@ -430,49 +437,47 @@ test('policy options', async t => {
       })
 
       // use key and store in cache the user
-      t.same(await request({ app, query: '{ getUser(id: "a1") { name, lastName} }' }), {
+      t.assert.deepStrictEqual(await request({ app, query: '{ getUser(id: "a1") { name, lastName} }' }), {
         data: { getUser: { name: 'Angus', lastName: 'Young' } }
       })
-      t.equal(await redisClient.get('Query.getUser~a1:lastName,name'), JSON.stringify({ lastName: 'Young', name: 'Angus' }))
+      t.assert.strictEqual(await redisClient.get('Query.getUser~a1:lastName,name'), JSON.stringify({ lastName: 'Young', name: 'Angus' }))
 
       // use key and get the user from cache
-      t.same(await request({ app, query: '{ getUser(id: "a1") { id } }' }), {
+      t.assert.deepStrictEqual(await request({ app, query: '{ getUser(id: "a1") { id } }' }), {
         data: { getUser: { id: 'a1' } }
       })
-      t.equal(await redisClient.get('Query.getUser~a1:id'), JSON.stringify({ id: 'a1' }))
+      t.assert.strictEqual(await redisClient.get('Query.getUser~a1:id'), JSON.stringify({ id: 'a1' }))
 
       // query users
-      t.same(await request({ app, query: '{ getUsers(lastName: "Young") { id, name, lastName} }' }), {
+      t.assert.deepStrictEqual(await request({ app, query: '{ getUsers(lastName: "Young") { id, name, lastName} }' }), {
         data: { getUsers: [{ id: 'a1', name: 'Angus', lastName: 'Young' }, { id: 'e5', name: 'Stevie', lastName: 'Young' }] }
       })
-      t.equal(await redisClient.get('Query.getUsers~*,Young:id,lastName,name'), JSON.stringify([{ id: 'a1', lastName: 'Young', name: 'Angus' }, { id: 'e5', lastName: 'Young', name: 'Stevie' }]))
+      t.assert.strictEqual(await redisClient.get('Query.getUsers~*,Young:id,lastName,name'), JSON.stringify([{ id: 'a1', lastName: 'Young', name: 'Angus' }, { id: 'e5', lastName: 'Young', name: 'Stevie' }]))
 
       // query users different fields
-      t.same(await request({ app, query: '{ getUsers(lastName: "Young") { name } }' }), {
+      t.assert.deepStrictEqual(await request({ app, query: '{ getUsers(lastName: "Young") { name } }' }), {
         data: { getUsers: [{ name: 'Angus' }, { name: 'Stevie' }] }
       })
-      t.equal(await redisClient.get('Query.getUsers~*,Young:name'), JSON.stringify([{ name: 'Angus' }, { name: 'Stevie' }]))
+      t.assert.strictEqual(await redisClient.get('Query.getUsers~*,Young:name'), JSON.stringify([{ name: 'Angus' }, { name: 'Stevie' }]))
 
       // never used the cache
-      t.equal(hits, 0)
+      t.assert.strictEqual(hits, 0)
     })
   })
 })
 
-test('manual invalidation', async t => {
-  beforeEach(async () => {
-    await redisClient.flushall()
-  })
-
+describe('manual invalidation', () => {
   const createApp = ({ schema, resolvers, t, cacheOptions }) => {
     const app = fastify()
-    t.teardown(app.close.bind(app))
+    t.after(() => app.close())
     app.register(mercurius, { schema, resolvers })
     app.register(cache, cacheOptions)
     return app
   }
 
-  t.test('should be able to call invalidation with a reference', async t => {
+  test('should be able to call invalidation with a reference', async t => {
+    await redisClient.flushall()
+
     let hits
     const app = createApp({
       t,
@@ -524,10 +529,12 @@ test('manual invalidation', async t => {
     await request({ app, query })
     await app.graphql.cache.invalidate('user:1')
     await request({ app, query })
-    t.equal(hits, 0)
+    t.assert.strictEqual(hits, 0)
   })
 
-  t.test('should be able to call invalidation with wildcard', async t => {
+  test('should be able to call invalidation with wildcard', async t => {
+    await redisClient.flushall()
+
     let hits
     const app = createApp({
       t,
@@ -582,10 +589,12 @@ test('manual invalidation', async t => {
     await request({ app, query: '{ user(id: "1") { name } }' })
     await request({ app, query: '{ user(id: "2") { name } }' })
     await request({ app, query: '{ user(id: "3") { name } }' })
-    t.equal(hits, 0)
+    t.assert.strictEqual(hits, 0)
   })
 
-  t.test('should be able to call invalidation with an array of references', async t => {
+  test('should be able to call invalidation with an array of references', async t => {
+    await redisClient.flushall()
+
     let hits
     const app = createApp({
       t,
@@ -639,10 +648,12 @@ test('manual invalidation', async t => {
     await app.graphql.cache.invalidate(['user:1', 'user:2'])
     await request({ app, query: '{ user(id: "1") { id, name } }' })
     await request({ app, query: '{ user(id: "2") { id, name } }' })
-    t.equal(hits, 0)
+    t.assert.strictEqual(hits, 0)
   })
 
-  t.test('should be able to call invalidation on a specific storage', async t => {
+  test('should be able to call invalidation on a specific storage', async t => {
+    await redisClient.flushall()
+
     const app = createApp({
       t,
       schema: `
@@ -700,11 +711,11 @@ test('manual invalidation', async t => {
     await app.graphql.cache.invalidate('countries', 'Query.countries')
     await request({ app, query: '{ user(id: "1") { id, name } }' })
     await request({ app, query: '{ countries { name } }' })
-    t.same(hits, { 'Query.user': 1, 'Query.countries': 0 })
+    t.assert.deepStrictEqual(hits, { 'Query.user': 1, 'Query.countries': 0 })
   })
 
-  t.test('should get a warning calling invalidation when it is disabled', async t => {
-    t.plan(1)
+  test('should get a warning calling invalidation when it is disabled', async t => {
+    await redisClient.flushall()
 
     const app = createApp({
       t,
@@ -732,7 +743,7 @@ test('manual invalidation', async t => {
             invalidation: false,
             log: {
               warn: (args) => {
-                t.equal(args.msg, 'acd/storage/redis.invalidate, exit due invalidation is disabled')
+                t.assert.strictEqual(args.msg, 'acd/storage/redis.invalidate, exit due invalidation is disabled')
               }
             }
           }
@@ -747,7 +758,9 @@ test('manual invalidation', async t => {
     app.graphql.cache.invalidate('user:1')
   })
 
-  t.test('should reject calling invalidation on a non-existing storage', async t => {
+  test('should reject calling invalidation on a non-existing storage', async t => {
+    await redisClient.flushall()
+
     const app = createApp({
       t,
       schema: `
@@ -798,6 +811,6 @@ test('manual invalidation', async t => {
     await request({ app, query: '{ user(id: "1") { id, name } }' })
     await request({ app, query: '{ countries { name } }' })
 
-    await t.rejects(app.graphql.cache.invalidate('countries', 'non-existing-storage'))
+    await t.assert.rejects(app.graphql.cache.invalidate('countries', 'non-existing-storage'))
   })
 })

@@ -1,43 +1,42 @@
 'use strict'
 
-const { test } = require('tap')
+const { test } = require('node:test')
 const { validateOpts } = require('../lib/validation')
 
 test('should get default options', async (t) => {
   const app = { log: 'the-logger' }
   const options = validateOpts(app)
-  t.same(options.storage, { type: 'memory' })
-  t.equal(options.ttl, 0)
-  t.equal(options.all, undefined)
-  t.equal(options.policy, undefined)
-  t.equal(options.skip, undefined)
-  t.equal(options.logInterval, undefined)
-  t.equal(options.logReport, undefined)
-  t.equal(typeof options.onDedupe, 'function')
-  t.equal(typeof options.onHit, 'function')
-  t.equal(typeof options.onMiss, 'function')
-  t.equal(typeof options.onSkip, 'function')
-  t.equal(typeof options.onError, 'function')
+  t.assert.deepStrictEqual(options.storage, { type: 'memory' })
+  t.assert.strictEqual(options.ttl, 0)
+  t.assert.strictEqual(options.all, undefined)
+  t.assert.strictEqual(options.policy, undefined)
+  t.assert.strictEqual(options.skip, undefined)
+  t.assert.strictEqual(options.logInterval, undefined)
+  t.assert.strictEqual(options.logReport, undefined)
+  t.assert.strictEqual(typeof options.onDedupe, 'function')
+  t.assert.strictEqual(typeof options.onHit, 'function')
+  t.assert.strictEqual(typeof options.onMiss, 'function')
+  t.assert.strictEqual(typeof options.onSkip, 'function')
+  t.assert.strictEqual(typeof options.onError, 'function')
 })
 
 test('should get default options with log object', async (t) => {
-  t.plan(13)
   const app = {
     log: { debug }
   }
   const options = validateOpts(app)
-  t.same(options.storage, { type: 'memory' })
-  t.equal(options.ttl, 0)
-  t.equal(options.all, undefined)
-  t.equal(options.policy, undefined)
-  t.equal(options.skip, undefined)
-  t.equal(options.logInterval, undefined)
-  t.equal(options.logReport, undefined)
-  t.equal(typeof options.onDedupe, 'function')
-  t.equal(typeof options.onHit, 'function')
-  t.equal(typeof options.onMiss, 'function')
-  t.equal(typeof options.onSkip, 'function')
-  t.equal(typeof options.onError, 'function')
+  t.assert.deepStrictEqual(options.storage, { type: 'memory' })
+  t.assert.strictEqual(options.ttl, 0)
+  t.assert.strictEqual(options.all, undefined)
+  t.assert.strictEqual(options.policy, undefined)
+  t.assert.strictEqual(options.skip, undefined)
+  t.assert.strictEqual(options.logInterval, undefined)
+  t.assert.strictEqual(options.logReport, undefined)
+  t.assert.strictEqual(typeof options.onDedupe, 'function')
+  t.assert.strictEqual(typeof options.onHit, 'function')
+  t.assert.strictEqual(typeof options.onMiss, 'function')
+  t.assert.strictEqual(typeof options.onSkip, 'function')
+  t.assert.strictEqual(typeof options.onError, 'function')
   // Trigger options.onError to be tested on callback at top
   const except = {
     prefix: 'Query',
@@ -47,7 +46,7 @@ test('should get default options with log object', async (t) => {
   }
   options.onError(except.prefix, except.fieldName, except.err)
   function debug (params) {
-    t.same(params, except)
+    t.assert.deepStrictEqual(params, except)
   }
 })
 
@@ -59,7 +58,7 @@ test('should get default storage.options', async (t) => {
   }
   const app = { log: 'the-logger' }
   const { storage } = validateOpts(app, options)
-  t.same(storage.options, { log: 'the-logger' })
+  t.assert.deepStrictEqual(storage.options, { log: 'the-logger' })
 })
 
 test('should get default storage.options, with logger', async (t) => {
@@ -70,7 +69,7 @@ test('should get default storage.options, with logger', async (t) => {
   }
   const app = { log: 'another-logger' }
   const { storage } = validateOpts(app, options)
-  t.same(storage.options, { log: 'the-logger' })
+  t.assert.deepStrictEqual(storage.options, { log: 'the-logger' })
 })
 
 test('should get default storage.options.invalidation.referencesTTL as max of policies and main ttl / invalidation as boolean true', async (t) => {
@@ -90,7 +89,7 @@ test('should get default storage.options.invalidation.referencesTTL as max of po
   const app = { log: 'the-logger' }
   const { storage } = validateOpts(app, options)
 
-  t.equal(storage.options.invalidation.referencesTTL, 6)
+  t.assert.strictEqual(storage.options.invalidation.referencesTTL, 6)
 })
 
 test('should get default storage.options.invalidation.referencesTTL as max of policies and main ttl / invalidation as empty object', async (t) => {
@@ -109,7 +108,7 @@ test('should get default storage.options.invalidation.referencesTTL as max of po
   const app = { log: 'the-logger' }
   const { storage } = validateOpts(app, options)
 
-  t.equal(storage.options.invalidation.referencesTTL, 6)
+  t.assert.strictEqual(storage.options.invalidation.referencesTTL, 6)
 })
 
 test('should not default storage.options.invalidation.referencesTTL when all ttls are functions / invalidation as boolean true', async (t) => {
@@ -126,7 +125,7 @@ test('should not default storage.options.invalidation.referencesTTL when all ttl
     }
   }
   const app = { log: 'the-logger' }
-  t.throws(() => {
+  t.assert.throws(() => {
     validateOpts(app, options)
   }, '')
 })
@@ -145,7 +144,7 @@ test('should not default storage.options.invalidation.referencesTTL when all ttl
     }
   }
   const app = { log: 'the-logger' }
-  t.throws(() => {
+  t.assert.throws(() => {
     validateOpts(app, options)
   }, '')
 })
@@ -165,7 +164,7 @@ test('should default storage.options.invalidation.referencesTTL to max ttl when 
   }
   const app = { log: 'the-logger' }
   const { storage } = validateOpts(app, options)
-  t.equal(storage.options.invalidation.referencesTTL, 4)
+  t.assert.strictEqual(storage.options.invalidation.referencesTTL, 4)
 })
 
 test('should use explicitly defined referencesTTL', async (t) => {
@@ -183,7 +182,7 @@ test('should use explicitly defined referencesTTL', async (t) => {
   }
   const app = { log: 'the-logger' }
   const { storage } = validateOpts(app, options)
-  t.equal(storage.options.invalidation.referencesTTL, 6)
+  t.assert.strictEqual(storage.options.invalidation.referencesTTL, 6)
 })
 
 test('should get default storage.options.log as app.log', async (t) => {
@@ -194,7 +193,7 @@ test('should get default storage.options.log as app.log', async (t) => {
   }
   const app = { log: 'the-logger' }
   const { storage } = validateOpts(app, options)
-  t.equal(storage.options.log, 'the-logger')
+  t.assert.strictEqual(storage.options.log, 'the-logger')
 })
 
 test('should not throw error when "__options" is used with valid parameters', async (t) => {
@@ -222,7 +221,7 @@ test('should not throw error when "__options" is used with valid parameters', as
   }
 
   const app = { log: 'the-logger' }
-  t.doesNotThrow(() => validateOpts(app, options))
+  t.assert.doesNotThrow(() => validateOpts(app, options))
 })
 
 const cases = [
@@ -402,6 +401,6 @@ const cases = [
 
 for (const useCase of cases) {
   test(useCase.title, async (t) => {
-    t.throws(() => validateOpts({}, useCase.options), useCase.expect)
+    t.assert.throws(() => validateOpts({}, useCase.options), useCase.expect)
   })
 }

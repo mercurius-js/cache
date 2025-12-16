@@ -1,6 +1,6 @@
 'use strict'
 
-const { test } = require('node:test')
+const { test, describe, beforeEach, after } = require('node:test')
 const fastify = require('fastify')
 const mercurius = require('mercurius')
 const { GraphQLScalarType, Kind } = require('graphql')
@@ -12,7 +12,7 @@ const { request } = require('./helper')
 
 const redisClient = new Redis()
 
-test.after(async () => {
+after(async () => {
   await redisClient.quit()
 })
 
@@ -21,13 +21,11 @@ const storages = [
   { type: 'redis', options: { client: redisClient, invalidation: true } }
 ]
 
-test('works with custom scalar type', async t => {
-  t.beforeEach(async () => {
-    await redisClient.flushall()
-  })
-
+describe('works with custom scalar type', () => {
   for (const storage of storages) {
-    await t.test(`with ${storage.type} storage`, async t => {
+    test(`with ${storage.type} storage`, async t => {
+      await redisClient.flushall()
+
       const app = fastify()
       t.after(() => app.close())
 
@@ -94,13 +92,13 @@ test('works with custom scalar type', async t => {
   }
 })
 
-test('works with 3rd party scalar type', async t => {
-  t.beforeEach(async () => {
+describe('works with 3rd party scalar type', () => {
+  beforeEach(async () => {
     await redisClient.flushall()
   })
 
   for (const storage of storages) {
-    await t.test(`with ${storage.type} storage`, async t => {
+    test(`with ${storage.type} storage`, async t => {
       const app = fastify()
       t.after(() => app.close())
 

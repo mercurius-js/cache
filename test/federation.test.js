@@ -1,15 +1,15 @@
 'use strict'
 
-const { test } = require('tap')
+const { test } = require('node:test')
 const fastify = require('fastify')
 const { mercuriusFederationPlugin } = require('@mercuriusjs/federation')
 const cache = require('..')
 
 const { request } = require('./helper')
 
-test('cache __resolveReference on federated service', async ({ equal, same, teardown }) => {
+test('cache __resolveReference on federated service', async (t) => {
   const app = fastify()
-  teardown(app.close.bind(app))
+  t.after(() => app.close())
 
   const schema = `
   type User @key(fields: "id") {
@@ -81,17 +81,17 @@ test('cache __resolveReference on federated service', async ({ equal, same, tear
     ]
   }
 
-  same(await request({ app, query, variables }),
+  t.assert.deepStrictEqual(await request({ app, query, variables }),
     { data: { _entities: [{ id: '123', name: 'user #123' }] } })
 
-  same(await request({ app, query, variables }),
+  t.assert.deepStrictEqual(await request({ app, query, variables }),
     { data: { _entities: [{ id: '123', name: 'user #123' }] } })
 
   query = '{ getDog { name } }'
 
-  same(await request({ app, query }),
+  t.assert.deepStrictEqual(await request({ app, query }),
     { data: { getDog: { name: 'Rocky' } } })
 
-  equal(misses, 2)
-  equal(hits, 1)
+  t.assert.strictEqual(misses, 2)
+  t.assert.strictEqual(hits, 1)
 })
