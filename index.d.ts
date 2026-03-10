@@ -5,6 +5,7 @@ export interface PolicyFieldOptions {
   ttl?: number | TtlFunction;
   stale?: number;
   storage?: MercuriusCacheStorageMemory | MercuriusCacheStorageRedis;
+  key?: Function;
   extendKey?: Function;
   skip?: Function;
   invalidate?: Function;
