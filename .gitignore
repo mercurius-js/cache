@@ -108,3 +108,4 @@ dist
 .vscode
 docker-compose.yml
 dump.rdb
+AGENTS.md

@@ -10,7 +10,7 @@ const cache = require('..')
 
 const { request } = require('./helper')
 
-const redisClient = new Redis()
+const redisClient = new Redis({ db: 10 })
 
 after(async () => {
   await redisClient.quit()
@@ -21,10 +21,10 @@ const storages = [
   { type: 'redis', options: { client: redisClient, invalidation: true } }
 ]
 
-describe('works with custom scalar type', () => {
+describe('works with custom scalar type', { concurrency: false }, () => {
   for (const storage of storages) {
     test(`with ${storage.type} storage`, async t => {
-      await redisClient.flushall()
+      await redisClient.flushdb()
 
       const app = fastify()
       t.after(() => app.close())
@@ -92,9 +92,9 @@ describe('works with custom scalar type', () => {
   }
 })
 
-describe('works with 3rd party scalar type', () => {
+describe('works with 3rd party scalar type', { concurrency: false }, () => {
   beforeEach(async () => {
-    await redisClient.flushall()
+    await redisClient.flushdb()
   })
 
   for (const storage of storages) {

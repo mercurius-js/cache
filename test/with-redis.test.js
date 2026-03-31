@@ -7,13 +7,13 @@ const Redis = require('ioredis')
 const cache = require('..')
 const { request } = require('./helper')
 
-const redisClient = new Redis()
+const redisClient = new Redis({ db: 11 })
 
 after(async () => {
   await redisClient.quit()
 })
 
-describe('redis invalidation', () => {
+describe('redis invalidation', { concurrency: false }, () => {
   const setupServer = ({ onMiss, onHit, invalidate, onError, t }) => {
     const schema = `
       type Query {
@@ -72,7 +72,7 @@ describe('redis invalidation', () => {
   }
 
   test('should remove storage keys by references', async t => {
-    await redisClient.flushall()
+    await redisClient.flushdb()
 
     // Setup Fastify and Mercurius
     let miss = 0
@@ -101,7 +101,7 @@ describe('redis invalidation', () => {
   })
 
   test('should not remove storage key by not existing reference', async t => {
-    await redisClient.flushall()
+    await redisClient.flushdb()
 
     // Setup Fastify and Mercurius
     let miss = 0
@@ -130,7 +130,7 @@ describe('redis invalidation', () => {
   })
 
   test('should invalidate more than one reference at once', async t => {
-    await redisClient.flushall()
+    await redisClient.flushdb()
 
     // Setup Fastify and Mercurius
     let miss = 0
@@ -158,7 +158,7 @@ describe('redis invalidation', () => {
   })
 
   test('should remove storage keys by references, but not the ones still alive', async t => {
-    await redisClient.flushall()
+    await redisClient.flushdb()
 
     // Setup Fastify and Mercurius
     let failHit = false
@@ -198,7 +198,7 @@ describe('redis invalidation', () => {
   })
 
   test('should not throw on invalidation error', async t => {
-    await redisClient.flushall()
+    await redisClient.flushdb()
 
     // Setup Fastify and Mercurius
     const app = setupServer({
@@ -218,10 +218,10 @@ describe('redis invalidation', () => {
   })
 })
 
-describe('policy options', () => {
+describe('policy options', { concurrency: false }, () => {
   describe('custom key', () => {
     test('should be able to use a custom key function, without fields', async t => {
-      await redisClient.flushall()
+      await redisClient.flushdb()
 
       const app = fastify()
       t.after(() => app.close())
@@ -267,7 +267,7 @@ describe('policy options', () => {
     })
 
     test('should be able to use a custom key function, with fields without selection', async t => {
-      await redisClient.flushall()
+      await redisClient.flushdb()
 
       const app = fastify()
       t.after(() => app.close())
@@ -351,7 +351,7 @@ describe('policy options', () => {
     })
 
     test('should be able to use a custom key function, with fields selection', async t => {
-      await redisClient.flushall()
+      await redisClient.flushdb()
 
       function selectedFields (info) {
         const fields = []
@@ -466,7 +466,7 @@ describe('policy options', () => {
   })
 })
 
-describe('manual invalidation', () => {
+describe('manual invalidation', { concurrency: false }, () => {
   const createApp = ({ schema, resolvers, t, cacheOptions }) => {
     const app = fastify()
     t.after(() => app.close())
@@ -476,7 +476,7 @@ describe('manual invalidation', () => {
   }
 
   test('should be able to call invalidation with a reference', async t => {
-    await redisClient.flushall()
+    await redisClient.flushdb()
 
     let hits
     const app = createApp({
@@ -533,7 +533,7 @@ describe('manual invalidation', () => {
   })
 
   test('should be able to call invalidation with wildcard', async t => {
-    await redisClient.flushall()
+    await redisClient.flushdb()
 
     let hits
     const app = createApp({
@@ -593,7 +593,7 @@ describe('manual invalidation', () => {
   })
 
   test('should be able to call invalidation with an array of references', async t => {
-    await redisClient.flushall()
+    await redisClient.flushdb()
 
     let hits
     const app = createApp({
@@ -652,7 +652,7 @@ describe('manual invalidation', () => {
   })
 
   test('should be able to call invalidation on a specific storage', async t => {
-    await redisClient.flushall()
+    await redisClient.flushdb()
 
     const app = createApp({
       t,
@@ -715,7 +715,7 @@ describe('manual invalidation', () => {
   })
 
   test('should get a warning calling invalidation when it is disabled', async t => {
-    await redisClient.flushall()
+    await redisClient.flushdb()
 
     const app = createApp({
       t,
@@ -759,7 +759,7 @@ describe('manual invalidation', () => {
   })
 
   test('should reject calling invalidation on a non-existing storage', async t => {
-    await redisClient.flushall()
+    await redisClient.flushdb()
 
     const app = createApp({
       t,
