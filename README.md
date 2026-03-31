@@ -623,104 +623,32 @@ See [async-cache-dedupe#redis-garbage-collector](https://github.com/mcollina/asy
 
 ## Benchmarks
 
-We have experienced up to 10x performance improvements in real-world scenarios.
-This repository also includes a benchmark of a gateway and two federated services that shows
-that adding a cache with 10ms TTL can improve the performance by 4x:
+We have experienced substantial performance improvements in real-world scenarios, but benchmark numbers depend heavily on the Node.js version, the Mercurius gateway/federation package versions, the machine, and the selected TTL.
 
+This repository includes benchmark fixtures for a gateway and two federated services built with the current split packages:
+- `@mercuriusjs/gateway`
+- `@mercuriusjs/federation`
+
+Run them with:
+
+```bash
+sh bench.sh
 ```
-$ sh bench.sh
-===============================
-= Gateway Mode (not cache)    =
-===============================
-Running 10s test @ http://localhost:3000/graphql
-100 connections
 
-┌─────────┬───────┬───────┬───────┬───────┬──────────┬─────────┬────────┐
-│ Stat    │ 2.5%  │ 50%   │ 97.5% │ 99%   │ Avg      │ Stdev   │ Max    │
-├─────────┼───────┼───────┼───────┼───────┼──────────┼─────────┼────────┤
-│ Latency │ 28 ms │ 31 ms │ 57 ms │ 86 ms │ 33.47 ms │ 12.2 ms │ 238 ms │
-└─────────┴───────┴───────┴───────┴───────┴──────────┴─────────┴────────┘
-┌───────────┬────────┬────────┬─────────┬─────────┬─────────┬────────┬────────┐
-│ Stat      │ 1%     │ 2.5%   │ 50%     │ 97.5%   │ Avg     │ Stdev  │ Min    │
-├───────────┼────────┼────────┼─────────┼─────────┼─────────┼────────┼────────┤
-│ Req/Sec   │ 1291   │ 1291   │ 3201    │ 3347    │ 2942.1  │ 559.51 │ 1291   │
-├───────────┼────────┼────────┼─────────┼─────────┼─────────┼────────┼────────┤
-│ Bytes/Sec │ 452 kB │ 452 kB │ 1.12 MB │ 1.17 MB │ 1.03 MB │ 196 kB │ 452 kB │
-└───────────┴────────┴────────┴─────────┴─────────┴─────────┴────────┴────────┘
+The gateway benchmark exercises:
+- no cache
+- cache enabled with `0s`, `1s`, and `10s` TTLs
+- default key serialization vs custom key serialization
 
-Req/Bytes counts sampled once per second.
+A recent local run on Node.js `v24.13.0` produced roughly:
+- gateway without cache: `~10.4k req/s`
+- gateway with `ttl: 0`: `~28.3k req/s`
+- gateway with `ttl: 1`: `~25.4k req/s`
+- gateway with `ttl: 10`: `~25.2k req/s`
+- default key serialization benchmark: `~40.6k req/s`
+- custom key serialization benchmark: `~43.5k req/s`
 
-32k requests in 11.03s, 11.3 MB read
-
-===============================
-= Gateway Mode (0s TTL)       =
-===============================
-Running 10s test @ http://localhost:3000/graphql
-100 connections
-
-┌─────────┬──────┬──────┬───────┬───────┬─────────┬─────────┬────────┐
-│ Stat    │ 2.5% │ 50%  │ 97.5% │ 99%   │ Avg     │ Stdev   │ Max    │
-├─────────┼──────┼──────┼───────┼───────┼─────────┼─────────┼────────┤
-│ Latency │ 6 ms │ 7 ms │ 12 ms │ 17 ms │ 7.29 ms │ 3.32 ms │ 125 ms │
-└─────────┴──────┴──────┴───────┴───────┴─────────┴─────────┴────────┘
-┌───────────┬─────────┬─────────┬─────────┬─────────┬─────────┬─────────┬─────────┐
-│ Stat      │ 1%      │ 2.5%    │ 50%     │ 97.5%   │ Avg     │ Stdev   │ Min     │
-├───────────┼─────────┼─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
-│ Req/Sec   │ 7403    │ 7403    │ 13359   │ 13751   │ 12759   │ 1831.94 │ 7400    │
-├───────────┼─────────┼─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
-│ Bytes/Sec │ 2.59 MB │ 2.59 MB │ 4.68 MB │ 4.81 MB │ 4.47 MB │ 642 kB  │ 2.59 MB │
-└───────────┴─────────┴─────────┴─────────┴─────────┴─────────┴─────────┴─────────┘
-
-Req/Bytes counts sampled once per second.
-
-128k requests in 10.03s, 44.7 MB read
-
-===============================
-= Gateway Mode (1s TTL)       =
-===============================
-Running 10s test @ http://localhost:3000/graphql
-100 connections
-
-┌─────────┬──────┬──────┬───────┬───────┬─────────┬─────────┬────────┐
-│ Stat    │ 2.5% │ 50%  │ 97.5% │ 99%   │ Avg     │ Stdev   │ Max    │
-├─────────┼──────┼──────┼───────┼───────┼─────────┼─────────┼────────┤
-│ Latency │ 7 ms │ 7 ms │ 13 ms │ 19 ms │ 7.68 ms │ 4.01 ms │ 149 ms │
-└─────────┴──────┴──────┴───────┴───────┴─────────┴─────────┴────────┘
-┌───────────┬─────────┬─────────┬─────────┬─────────┬─────────┬─────────┬─────────┐
-│ Stat      │ 1%      │ 2.5%    │ 50%     │ 97.5%   │ Avg     │ Stdev   │ Min     │
-├───────────┼─────────┼─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
-│ Req/Sec   │ 6735    │ 6735    │ 12879   │ 12951   │ 12173   │ 1828.86 │ 6735    │
-├───────────┼─────────┼─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
-│ Bytes/Sec │ 2.36 MB │ 2.36 MB │ 4.51 MB │ 4.53 MB │ 4.26 MB │ 640 kB  │ 2.36 MB │
-└───────────┴─────────┴─────────┴─────────┴─────────┴─────────┴─────────┴─────────┘
-
-Req/Bytes counts sampled once per second.
-
-122k requests in 10.03s, 42.6 MB read
-
-===============================
-= Gateway Mode (10s TTL)      =
-===============================
-Running 10s test @ http://localhost:3000/graphql
-100 connections
-
-┌─────────┬──────┬──────┬───────┬───────┬─────────┬─────────┬────────┐
-│ Stat    │ 2.5% │ 50%  │ 97.5% │ 99%   │ Avg     │ Stdev   │ Max    │
-├─────────┼──────┼──────┼───────┼───────┼─────────┼─────────┼────────┤
-│ Latency │ 7 ms │ 7 ms │ 13 ms │ 18 ms │ 7.51 ms │ 3.22 ms │ 121 ms │
-└─────────┴──────┴──────┴───────┴───────┴─────────┴─────────┴────────┘
-┌───────────┬────────┬────────┬─────────┬─────────┬─────────┬─────────┬────────┐
-│ Stat      │ 1%     │ 2.5%   │ 50%     │ 97.5%   │ Avg     │ Stdev   │ Min    │
-├───────────┼────────┼────────┼─────────┼─────────┼─────────┼─────────┼────────┤
-│ Req/Sec   │ 7147   │ 7147   │ 13231   │ 13303   │ 12498.2 │ 1807.01 │ 7144   │
-├───────────┼────────┼────────┼─────────┼─────────┼─────────┼─────────┼────────┤
-│ Bytes/Sec │ 2.5 MB │ 2.5 MB │ 4.63 MB │ 4.66 MB │ 4.37 MB │ 633 kB  │ 2.5 MB │
-└───────────┴────────┴────────┴─────────┴─────────┴─────────┴─────────┴────────┘
-
-Req/Bytes counts sampled once per second.
-
-125k requests in 10.03s, 43.7 MB read
-```
+Treat these as sample results only; rerun `sh bench.sh` on your machine after dependency upgrades or benchmark fixture changes.
 
 ## More info about how this plugin works
 This plugin caches the result of the resolver, but if the resolver returns a type incompatible with the schema return type, the plugin will cache the invalid return value. When you call the resolver again, the plugin will return the cached value, thereby caching the validation error.
