@@ -19,13 +19,11 @@ npm i fastify mercurius mercurius-cache graphql
 ## Quickstart
 
 ```js
-'use strict'
+import Fastify from 'fastify'
+import mercurius from 'mercurius'
+import cache from 'mercurius-cache'
 
-const fastify = require('fastify')
-const mercurius = require('mercurius')
-const cache = require('mercurius-cache')
-
-const app = fastify({ logger: true })
+const app = Fastify({ logger: true })
 
 const schema = `
   type Query {
@@ -44,24 +42,23 @@ const resolvers = {
   }
 }
 
-app.register(mercurius, {
+await app.register(mercurius, {
   schema,
   resolvers
 })
 
-
 // cache query "add" responses for 10 seconds
-app.register(cache, {
+await app.register(cache, {
   ttl: 10,
   policy: {
     Query: {
       add: true
-      // note: it cache "add" but it doesn't cache "hello"
+      // note: it caches "add" but it does not cache "hello"
     }
   }
 })
 
-app.listen(3000)
+await app.listen({ port: 3000 })
 
 // Use the following to test
 // curl -X POST -H 'content-type: application/json' -d '{ "query": "{ add(x: 2, y: 2) }" }' localhost:3000/graphql
@@ -670,13 +667,11 @@ This issue may be exacerbated in a federation setup when you don't have full con
 
 Here you can find an example of the problem.
 ```js
-'use strict'
+import Fastify from 'fastify'
+import mercurius from 'mercurius'
+import cache from 'mercurius-cache'
 
-const fastify = require('fastify')
-const mercurius = require('mercurius')
-const cache = require('mercurius-cache')
-
-const app = fastify({ logger: true })
+const app = Fastify({ logger: true })
 
 const schema = `
   type Query {
@@ -686,18 +681,18 @@ const schema = `
 
 const resolvers = {
   Query: {
-    async getNumber(_, __, { reply }) {
-      return "hello";
+    async getNumber (_, __, { reply }) {
+      return 'hello'
     }
   }
 }
 
-app.register(mercurius, {
+await app.register(mercurius, {
   schema,
   resolvers
 })
 
-app.register(cache, {
+await app.register(cache, {
   ttl: 10,
   policy: {
     Query: {
