@@ -648,7 +648,20 @@ A recent local run on Node.js `v24.13.0` produced roughly:
 - default key serialization benchmark: `~40.6k req/s`
 - custom key serialization benchmark: `~43.5k req/s`
 
-Treat these as sample results only; rerun `sh bench.sh` on your machine after dependency upgrades or benchmark fixture changes.
+There is also a single-server benchmark that isolates the cache effect without gateway/federation overhead. It uses one Mercurius server with a resolver that takes about `100ms` to respond.
+
+Run it with:
+
+```bash
+./bench/single-server.sh
+```
+
+A recent local run on Node.js `v24.13.0` produced roughly:
+- single server without cache: `~970 req/s`, `~102ms` average latency
+- single server with `ttl: 1`: `~45.1k req/s`, `~1.44ms` average latency
+- single server with `ttl: 10`: `~54.4k req/s`, `~1.19ms` average latency
+
+Treat these as sample results only; rerun `sh bench.sh` or `./bench/single-server.sh` on your machine after dependency upgrades or benchmark fixture changes.
 
 ## More info about how this plugin works
 This plugin caches the result of the resolver, but if the resolver returns a type incompatible with the schema return type, the plugin will cache the invalid return value. When you call the resolver again, the plugin will return the cached value, thereby caching the validation error.
