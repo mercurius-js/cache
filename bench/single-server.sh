@@ -29,7 +29,7 @@ run_bench() {
   pid="$!"
 
   npx wait-on tcp:3000
-  node ./bench/single-server-bench.js
+  node ./bench/single-server-bench.js 2>&1
   cleanup
   echo
 }

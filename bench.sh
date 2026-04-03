@@ -37,7 +37,7 @@ run_gateway_bench() {
   fi
 
   npx wait-on tcp:3000
-  node ./bench/gateway-bench.js
+  node ./bench/gateway-bench.js 2>&1
   cleanup
   echo
 }
@@ -52,7 +52,7 @@ run_custom_key_bench() {
 
   start_bg node ./bench/custom-key.js
   npx wait-on tcp:3000
-  QUERY="${query_index}" node ./bench/custom-key-bench.js
+  QUERY="${query_index}" node ./bench/custom-key-bench.js 2>&1
   cleanup
   echo
 }
