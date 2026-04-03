@@ -1,65 +1,69 @@
-#! /bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-echo '==============================='
-echo '= Gateway Mode (not cache)    ='
-echo '==============================='
-npx concurrently --raw -k \
-  "node ./bench/gateway-service-1.js" \
-  "node ./bench/gateway-service-2.js" \
-  "npx wait-on tcp:3001 tcp:3002 && node ./bench/gateway.js" \
-  "npx wait-on tcp:3000 && node ./bench/gateway-bench.js"
+pids=()
 
-echo
+cleanup() {
+  if ((${#pids[@]} > 0)); then
+    kill "${pids[@]}" 2>/dev/null || true
+    wait "${pids[@]}" 2>/dev/null || true
+    pids=()
+  fi
+}
 
-echo '==============================='
-echo '= Gateway Mode (0s TTL)       ='
-echo '==============================='
-npx concurrently --raw -k \
-  "node ./bench/gateway-service-1.js" \
-  "node ./bench/gateway-service-2.js" \
-  "npx wait-on tcp:3001 tcp:3002 && node ./bench/gateway.js 0" \
-  "npx wait-on tcp:3000 && node ./bench/gateway-bench.js"
+trap cleanup EXIT INT TERM
 
-echo
+start_bg() {
+  "$@" &
+  pids+=("$!")
+}
 
-echo '==============================='
-echo '= Gateway Mode (1s TTL)       ='
-echo '==============================='
-npx concurrently --raw -k \
-  "node ./bench/gateway-service-1.js" \
-  "node ./bench/gateway-service-2.js" \
-  "npx wait-on tcp:3001 tcp:3002 && node ./bench/gateway.js 1" \
-  "npx wait-on tcp:3000 && node ./bench/gateway-bench.js"
+run_gateway_bench() {
+  local label="$1"
+  local ttl="${2-}"
 
-echo
+  echo '==============================='
+  echo "= ${label} ="
+  echo '==============================='
 
-echo '==============================='
-echo '= Gateway Mode (10s TTL)      ='
-echo '==============================='
-npx concurrently --raw -k \
-  "node ./bench/gateway-service-1.js" \
-  "node ./bench/gateway-service-2.js" \
-  "npx wait-on tcp:3001 tcp:3002 && node ./bench/gateway.js 10" \
-  "npx wait-on tcp:3000 && node ./bench/gateway-bench.js"
+  start_bg node ./bench/gateway-service-1.js
+  start_bg node ./bench/gateway-service-2.js
+  npx wait-on tcp:3001 tcp:3002
 
-echo
+  if [[ -n "${ttl}" ]]; then
+    start_bg node ./bench/gateway.js "${ttl}"
+  else
+    start_bg node ./bench/gateway.js
+  fi
+
+  npx wait-on tcp:3000
+  node ./bench/gateway-bench.js 2>&1
+  cleanup
+  echo
+}
+
+run_custom_key_bench() {
+  local label="$1"
+  local query_index="$2"
+
+  echo '==============================='
+  echo "= ${label} ="
+  echo '==============================='
+
+  start_bg node ./bench/custom-key.js
+  npx wait-on tcp:3000
+  QUERY="${query_index}" node ./bench/custom-key-bench.js 2>&1
+  cleanup
+  echo
+}
+
+run_gateway_bench 'Gateway Mode (not cache)    ' ''
+run_gateway_bench 'Gateway Mode (0s TTL)       ' '0'
+run_gateway_bench 'Gateway Mode (1s TTL)       ' '1'
+run_gateway_bench 'Gateway Mode (10s TTL)      ' '10'
+
 echo '*******************************'
 echo
 
-echo
-
-echo '==============================='
-echo '= Default Key Serialization   ='
-echo '==============================='
-npx concurrently --raw -k \
-  "node ./bench/custom-key.js" \
-  "npx wait-on tcp:3000 && QUERY=0 node ./bench/custom-key-bench.js"
-
-echo
-
-echo '==============================='
-echo '= Custom Key Serialization   ='
-echo '==============================='
-npx concurrently --raw -k \
-  "node ./bench/custom-key.js" \
-  "npx wait-on tcp:3000 && QUERY=1 node ./bench/custom-key-bench.js"
+run_custom_key_bench 'Default Key Serialization   ' '0'
+run_custom_key_bench 'Custom Key Serialization    ' '1'

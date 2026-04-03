@@ -1,54 +1,62 @@
 'use strict'
 
 const Fastify = require('fastify')
-const mercurius = require('mercurius')
+const mercuriusGateway = require('@mercuriusjs/gateway')
 const cache = require('..')
 
-const app = Fastify()
+async function main () {
+  const app = Fastify({ logger: false })
 
-app.register(mercurius, {
-  gateway: {
-    services: [{
-      name: 'user',
-      url: 'http://localhost:3001/graphql'
-    }, {
-      name: 'post',
-      url: 'http://localhost:3002/graphql'
-    }]
-  },
-  graphiql: true,
-  jit: 1
-})
+  await app.register(mercuriusGateway, {
+    gateway: {
+      services: [
+        {
+          name: 'user',
+          url: 'http://localhost:3001/graphql'
+        },
+        {
+          name: 'post',
+          url: 'http://localhost:3002/graphql'
+        }
+      ]
+    },
+    jit: 1
+  })
 
-app.register(cache, {
-  ttl: 120, // 3 minutes
-  options: {
-    invalidation: true
-  },
-  onError: (err) => {
-    console.log('Error', err)
-  },
-  policy: {
-    Query: {
-      topPosts: {
-        references: () => {
-          return ['topPosts']
-        }
-      },
-      getPost: {
-        references: (_, arg) => {
-          return [`getPost:${arg.pid}`]
-        }
+  await app.register(cache, {
+    ttl: 120,
+    storage: {
+      type: 'memory',
+      options: {
+        invalidation: true
       }
     },
-    Mutation: {
-      updatePostTitle: {
-        invalidate (_, arg) {
-          return [`getPost:${arg.pid}`, 'posts']
+    onError: (type, fieldName, err) => {
+      console.log('Error', type, fieldName, err)
+    },
+    policy: {
+      Query: {
+        topPosts: {
+          references: () => ['topPosts']
+        },
+        getPost: {
+          references: (_, arg) => [`getPost:${arg.pid}`]
+        }
+      },
+      Mutation: {
+        updatePostTitle: {
+          invalidate (_, arg) {
+            return [`getPost:${arg.pid}`, 'posts']
+          }
         }
       }
     }
-  }
-})
+  })
 
-app.listen(3000)
+  await app.listen({ port: 3000 })
+}
+
+main().catch(err => {
+  console.error(err)
+  process.exit(1)
+})

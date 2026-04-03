@@ -1,7 +1,6 @@
-import { FastifyPluginAsync } from "fastify";
-import { MercuriusPlugin } from "mercurius";
+import { FastifyPluginAsync } from 'fastify'
 
-export type TtlFunction = (...args: any[]) => number;
+export type TtlFunction = (...args: any[]) => number
 export interface PolicyFieldOptions {
   ttl?: number | TtlFunction;
   stale?: number;
@@ -12,10 +11,10 @@ export interface PolicyFieldOptions {
   references?: Function;
 }
 
-export type PolicyFieldName = string;
-export type PolicyField = Record<PolicyFieldName, PolicyFieldOptions | object | boolean>;
-export type PolicyName = string;
-export type MercuriusCachePolicy = Record<PolicyName, PolicyField>;
+export type PolicyFieldName = string
+export type PolicyField = Record<PolicyFieldName, PolicyFieldOptions | object | boolean>
+export type PolicyName = string
+export type MercuriusCachePolicy = Record<PolicyName, PolicyField>
 
 export interface MercuriusCacheStorageMemoryOptions {
   size: number;
@@ -30,11 +29,11 @@ export interface MercuriusCacheStorageRedisOptions {
 }
 
 export enum MercuriusCacheStorageType {
-  MEMORY = "memory",
-  REDIS = "redis",
+  MEMORY = 'memory',
+  REDIS = 'redis',
 }
 export interface MercuriusCacheStorage {
-  type: "memory" | "redis";
+  type: 'memory' | 'redis';
 }
 export interface MercuriusCacheStorageMemory extends MercuriusCacheStorage {
   options?: MercuriusCacheStorageMemoryOptions;
@@ -66,41 +65,41 @@ export interface QueryFieldData {
   skips: number;
 }
 
-export type QueryFieldName = string;
-export type ReportData = Record<QueryFieldName, QueryFieldData>;
+export type QueryFieldName = string
+export type ReportData = Record<QueryFieldName, QueryFieldData>
 
 export declare class Report {
-  constructor(
+  constructor (
     app: object,
     all?: boolean,
     policy?: any,
     logInterval?: number,
     logReport?: Function
-  );
+  )
 
-  log: object;
-  logReport: Function;
-  logInterval: number;
-  logTimer: Function;
-  data: ReportData;
+  log: object
+  logReport: Function
+  logInterval: number
+  logTimer: Function
+  data: ReportData
 
-  init(options: MercuriusCacheOptions): void;
-  clear(): void;
-  defaultLog(): void;
-  logReportAndClear(): void;
-  refresh(): void;
-  close(): void;
-  wrap(
+  init (options: MercuriusCacheOptions): void
+  clear (): void
+  defaultLog (): void
+  logReportAndClear (): void
+  refresh (): void
+  close (): void
+  wrap (
     name: string,
     onDedupe: Function,
     onHit: Function,
     onMiss: Function,
     onSkip: Function
-  ): void;
+  ): void
 }
 
 /** Mercurius Cache is a plugin that adds an in-process caching layer to Mercurius. */
-declare const mercuriusCache: FastifyPluginAsync<MercuriusCacheOptions>;
+declare const mercuriusCache: FastifyPluginAsync<MercuriusCacheOptions>
 
 export interface MercuriusCacheContext {
   refresh(): void;
@@ -108,10 +107,10 @@ export interface MercuriusCacheContext {
   invalidate(references: string | string[], storage?: string): void
 }
 
-declare module "mercurius" {
+declare module 'mercurius' {
   interface MercuriusPlugin {
     cache?: MercuriusCacheContext;
   }
 }
 
-export default mercuriusCache;
+export default mercuriusCache
