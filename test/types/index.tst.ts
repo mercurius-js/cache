@@ -18,7 +18,7 @@ const emptyCacheOptions = {}
 expect(emptyCacheOptions).type.toBeAssignableTo<MercuriusCacheOptions>()
 app.register(mercuriusCache, emptyCacheOptions)
 
-expect(({} as MercuriusPlugin).cache).type.toBeAssignableTo<MercuriusCacheContext | undefined>()
+expect(({} as MercuriusPlugin).cache).type.toBe<MercuriusCacheContext | undefined>()
 
 const queryFieldPolicy = {
   ttl: (result: { shouldCache: boolean }) => result.shouldCache ? 10 : 0,
@@ -97,4 +97,4 @@ const allValidCacheOptions = {
 expect(allValidCacheOptions).type.toBeAssignableTo<MercuriusCacheOptions>()
 app.register(mercuriusCache, allValidCacheOptions)
 
-expect(({} as MercuriusPlugin).cache).type.toBeAssignableTo<MercuriusCacheContext | undefined>()
+expect(({} as MercuriusPlugin).cache).type.toBe<MercuriusCacheContext | undefined>()
