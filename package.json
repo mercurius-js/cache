@@ -3,10 +3,10 @@
   "version": "8.0.0",
   "description": "Cache the results of your GraphQL resolvers, for Mercurius",
   "main": "index.js",
-  "types": "index.d.ts",
+  "types": "types/index.d.ts",
   "scripts": {
     "lint": "eslint .",
-    "test": "npm run lint && node --test test/*.js && tstyche",
+    "test": "npm run lint && node --test && tstyche",
     "redis": "docker run -p 6379:6379 --rm redis:7",
     "lint:fix": "eslint . --fix"
   },

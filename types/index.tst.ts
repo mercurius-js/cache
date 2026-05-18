@@ -1,4 +1,6 @@
 import fastify from 'fastify'
+import type { MercuriusPlugin } from 'mercurius'
+import { expect } from 'tstyche'
 import {
   MercuriusCacheOptions,
   MercuriusCachePolicy,
@@ -7,10 +9,8 @@ import {
   MercuriusCacheStorageRedis,
   MercuriusCacheContext,
   MercuriusCacheStorageType,
-} from '../../index'
-import type { MercuriusPlugin } from 'mercurius'
-import { expect } from 'tstyche'
-import mercuriusCache from '../../index'
+} from './index'
+import mercuriusCache from './index'
 
 const app = fastify()
 
