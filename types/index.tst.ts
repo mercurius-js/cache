@@ -1,24 +1,23 @@
 import fastify from 'fastify'
-import {
+import type { MercuriusPlugin } from 'mercurius'
+import { expect } from 'tstyche'
+import mercuriusCache, {
+  MercuriusCacheContext,
   MercuriusCacheOptions,
   MercuriusCachePolicy,
-  PolicyFieldOptions,
   MercuriusCacheStorageMemory,
   MercuriusCacheStorageRedis,
-  MercuriusCacheContext,
   MercuriusCacheStorageType,
-} from '../../index'
-import type { MercuriusPlugin } from 'mercurius'
-import { expectAssignable, expectNotAssignable } from 'tsd'
-import mercuriusCache from '../../index'
+  PolicyFieldOptions,
+} from './index'
 
 const app = fastify()
 
 const emptyCacheOptions = {}
-expectAssignable<MercuriusCacheOptions>(emptyCacheOptions)
+expect<MercuriusCacheOptions>().type.toBeAssignableFrom(emptyCacheOptions)
 app.register(mercuriusCache, emptyCacheOptions)
 
-expectAssignable<MercuriusCacheContext | undefined>(({} as MercuriusPlugin).cache)
+expect(({} as MercuriusPlugin).cache).type.toBe<MercuriusCacheContext | undefined>()
 
 const queryFieldPolicy = {
   ttl: (result: { shouldCache: boolean }) => result.shouldCache ? 10 : 0,
@@ -26,7 +25,7 @@ const queryFieldPolicy = {
   storage: { type: MercuriusCacheStorageType.MEMORY, options: { size: 1 } },
 }
 
-expectAssignable<PolicyFieldOptions>(queryFieldPolicy)
+expect<PolicyFieldOptions>().type.toBeAssignableFrom(queryFieldPolicy)
 
 const queryPolicy = {
   Query: {
@@ -34,13 +33,13 @@ const queryPolicy = {
   },
 }
 
-expectAssignable<MercuriusCachePolicy>(queryPolicy)
+expect<MercuriusCachePolicy>().type.toBeAssignableFrom(queryPolicy)
 
 const wrongStorageType = {
   type: 'wrong type'
 }
 
-expectNotAssignable<MercuriusCacheStorageType>(wrongStorageType)
+expect<MercuriusCacheStorageType>().type.not.toBeAssignableFrom(wrongStorageType)
 
 const cacheRedisStorage = {
   type: MercuriusCacheStorageType.REDIS,
@@ -51,8 +50,8 @@ const cacheRedisStorage = {
   },
 }
 
-expectAssignable<MercuriusCacheStorageRedis>(cacheRedisStorage)
-expectNotAssignable<MercuriusCacheStorageMemory>(cacheRedisStorage)
+expect<MercuriusCacheStorageRedis>().type.toBeAssignableFrom(cacheRedisStorage)
+expect<MercuriusCacheStorageMemory>().type.not.toBeAssignableFrom(cacheRedisStorage)
 
 const cacheMemoryStorage = {
   type: MercuriusCacheStorageType.MEMORY,
@@ -63,8 +62,8 @@ const cacheMemoryStorage = {
   },
 }
 
-expectAssignable<MercuriusCacheStorageMemory>(cacheMemoryStorage)
-expectNotAssignable<MercuriusCacheStorageRedis>(cacheMemoryStorage)
+expect<MercuriusCacheStorageMemory>().type.toBeAssignableFrom(cacheMemoryStorage)
+expect<MercuriusCacheStorageRedis>().type.not.toBeAssignableFrom(cacheMemoryStorage)
 
 const allValidCacheOptions = {
   all: false,
@@ -94,7 +93,5 @@ const allValidCacheOptions = {
     console.log('log report')
   },
 }
-expectAssignable<MercuriusCacheOptions>(allValidCacheOptions)
+expect<MercuriusCacheOptions>().type.toBeAssignableFrom(allValidCacheOptions)
 app.register(mercuriusCache, allValidCacheOptions)
-
-expectAssignable<MercuriusCacheContext | undefined>(({} as MercuriusPlugin).cache)
