@@ -49,7 +49,7 @@
   },
   "dependencies": {
     "async-cache-dedupe": "^3.4.0",
-    "fastify-plugin": "^5.1.0"
+    "fastify-plugin": "^6.0.0"
   },
   "precommit": "test"
 }
